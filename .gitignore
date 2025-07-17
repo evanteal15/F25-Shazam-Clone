@@ -1,2 +1,3 @@
 env
 env/*
+env/lib/python3.12/site-packages/llvmlite/binding/libllvmlite.so
