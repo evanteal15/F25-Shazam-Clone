@@ -3,6 +3,7 @@ CREATE TABLE songs(
     title TEXT,
     artist TEXT,
     album TEXT,
+    youtube_link TEXT,
     duration INTEGER
 )
 
