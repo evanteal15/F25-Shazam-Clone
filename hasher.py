@@ -2,7 +2,9 @@ import librosa
 import numpy as np
 from scipy import signal
 
-def create_constellation_map(audio , FS):
+from DBcontrol import retrieve_song, add_hash
+
+def create_constellation_map(audio, FS):
     window_len = 0.5
     window_samples = int(FS * window_len)
     
@@ -37,8 +39,8 @@ def create_constellation_map(audio , FS):
 
     return constellation_map
 
-def filter_peaks(spectrogram, audioDuration):
-    # logarithmic frequency bans since lower frequencies are amplified and will usually dominate
+def filter_peaks(spectrogram, audioDuration: float):
+    # logarithmic frequency bands since lower frequencies are amplified and will usually dominate
     bands = [(0, 10), (10, 20), (20, 40), (40, 80), (80, 160), (160, 512)]
     
     peaks = []
@@ -71,7 +73,21 @@ def filter_peaks(spectrogram, audioDuration):
 
     return peaks
 
-def hash_constellation(peaks, songID):
+def create_address(anchor: tuple[int, int], target: tuple[int, int]) -> int:
+    # get relevant information from the anchor and target points
+    anchor_freq = anchor[0]
+    target_freq = target[0]
+    deltaT = target[1] - anchor[1]
+    
+    # 32 bit hash using bit shifting
+    #hash = int(anchor_freq) | (int(target_freq) << 10) | (int(deltaT) << 20)
+    hash = int(anchor_freq) | (int(target_freq) << 10) | (int(deltaT) << 20)
+    # int(anchor_freq)         occupies bits 0-9,    anchor_freq <= 1023
+    # int(target_freq) << 10   occupies bits 10-19,  target_freq <= 1023
+    # int(deltaT) << 20        occupies bits 20-31,  deltaT <= 4095
+    return hash
+
+def hash_constellation(peaks, song_id):
     fingerprints = {}
     
     # iterate through each anchor point in the constellation map
@@ -83,18 +99,28 @@ def hash_constellation(peaks, songID):
             address = create_address(peak, target)
             anchorT = peak[1]
 
-            fingerprints[address] = (anchorT, songID)
+            fingerprints[address] = (anchorT, song_id)
             
     return fingerprints
 
 
-def create_address(anchor, target):
-    # get relevant information from the anchor and target points
-    anchor_freq = anchor[0]
-    target_freq = target[0]
-    deltaT = target[1] - anchor[1]
-    
-    return f"{anchor_freq}_{target_freq}_{deltaT}"
+def create_hashes(constellation_map, song_id: int):
+    song = retrieve_song(song_id)
+    duration_s = song["duration_s"]
+    audio_path = song["audio_path"]
+
+
+    Fs, audio = librosa.load(audio_path)
+    constellation = create_constellation_map(audio, Fs)
+    peaks = filter_peaks(spectrogram=constellation, audioDuration=duration_s)
+    hashes = hash_constellation(peaks, song_id)
+    for address, (anchorT, _) in hashes.items():
+        add_hash(address, anchorT, song_id)
 
 def score_hash():
     pass
+
+def score_hashes(hashes: dict):
+    num_matches = {}
+    for address, (anchorT, _) in hashes.items():
+        pass
