@@ -112,7 +112,11 @@ def create_hashes(constellation_map, song_id: int):
 
     Fs, audio = librosa.load(audio_path)
     constellation = create_constellation_map(audio, Fs)
+<<<<<<< HEAD
     #peaks = filter_peaks(spectrogram=None, audioDuration=duration_s)
+=======
+    peaks = filter_peaks(spectrogram=constellation, audioDuration=duration_s)
+>>>>>>> e2a75a176256c808dcd5ba6e817e41e1bf9d7b3d
     hashes = hash_constellation(peaks, song_id)
     for address, (anchorT, _) in hashes.items():
         add_hash(address, anchorT, song_id)
