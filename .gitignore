@@ -1,7 +1,12 @@
 .DS_Store
+__pycache__
 env
-env/*
-.env
 env/lib/python3.12/site-packages/llvmlite/binding/libllvmlite.so
+
+sql/library.db
+shazam_paper.pdf
+
+# files associated with music download script
 musicdl
+.env
 tracks*

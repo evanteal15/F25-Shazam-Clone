@@ -8,12 +8,12 @@ CREATE TABLE songs(
     youtube_url TEXT,
     release_date TEXT,
     duration_s FLOAT NOT NULL,
-    audio_path TEXT NOT NULL,
-)
+    audio_path TEXT NOT NULL
+);
 
 CREATE TABLE hashes(
-    hash_val INTEGER PRIMARY KEY,
+    hash_val INTEGER NOT NULL,
     time_stamp INTEGER NOT NULL,
     song_id INTEGER NOT NULL,
     FOREIGN KEY (song_id) REFERENCES songs(id)
-)
+);
