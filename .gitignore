@@ -4,7 +4,9 @@ env
 env/lib/python3.12/site-packages/llvmlite/binding/libllvmlite.so
 
 sql/library.db
+sql/library.db-journal
 shazam_paper.pdf
+paper.pdf
 
 # files associated with music download script
 musicdl

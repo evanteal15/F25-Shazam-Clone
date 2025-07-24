@@ -1,11 +1,8 @@
-import os
-import sys
-
 import pyaudio
 import wave
-from hasher import create_constellation_map, \
-                   compute_source_hashes, create_hashes, score_hashes, preprocess_audio
-from DBcontrol import init_db, retrieve_song
+from hasher import init_db, recognize_music
+from DBcontrol import retrieve_song
+import argparse
 
 def display_result(song_id: int):
     song = retrieve_song(song_id)
@@ -52,7 +49,7 @@ def record_audio(n_seconds: int = 5) -> str:
     stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
 
     frames = []
-    for i in range(0, int(RATE / CHUNK * n_seconds)):
+    for _ in range(0, int(RATE / CHUNK * n_seconds)):
         data = stream.read(CHUNK)
         frames.append(data)
 
@@ -68,25 +65,40 @@ def record_audio(n_seconds: int = 5) -> str:
 
     return outfile
 
-def recognize_music() -> list[tuple[int,int]]:
-    print("🎤 Listening for music", end="\r")
-    sample_path = record_audio()
-
-    print("🔎 Searching for a match", end="\r")
-    sample, sr = preprocess_audio(sample_path)
-    os.remove(sample_path)
-    constellation = create_constellation_map(sample, sr)
-    hashes = create_hashes(constellation, None, sr)
-    scores = score_hashes(hashes)
-    display_result(scores[0][0])
-    #display_scores(scores)
+def shazamesque():
+        input("🔊 Tap (Enter) to Shazamesque\n")
+        print("🎤 Listening for music", end="\r")
+        sample_wav_path = record_audio()
+        print("🔎 Searching for a match", end="\r")
+        scores = recognize_music(sample_wav_path)
+        song_id = scores[0][0]
+        display_result(song_id)
+        display_scores(scores)
 
 def main():
-    init_db(tracks_dir = "tracks-2025-07-22", n_songs = 5)
-    compute_source_hashes()
+    parser = argparse.ArgumentParser(description="Music recognition CLI")
+    parser.add_argument('--init', action='store_true', help='Initialize the database and exit')
+    parser.add_argument('--recognize', action='store_true', help='Run the Shazamesque Algorithm')
+    parser.add_argument('--recognize-loop', action='store_true', help='Run the Shazamesque Algorithm on repeat')
+    args = parser.parse_args()
 
-    input("🔊 Tap (Enter) to recognize_music()\n")
-    recognize_music()
+    if args.init:
+        init_db(tracks_dir="tracks-2025-07-22")
+        print("Database initialized with songs and hashes.")
+        return
+    elif args.recognize:
+        shazamesque()
+        return
+    elif args.recognize_loop:
+        print("Ctrl+C to exit")
+        try:
+            while True:
+                shazamesque()
+        except KeyboardInterrupt:
+            return
+    else:
+        parser.print_help()
+        return
 
 if __name__ == "__main__":
     main()

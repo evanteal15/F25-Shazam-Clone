@@ -1,8 +1,10 @@
+import os
+
 import sqlite3
 import librosa
-import os
 import glob
 import pandas as pd
+import zipfile
 
 library = "sql/library.db"
 
@@ -42,13 +44,22 @@ def add_song(track_data: dict) -> None:
         )
         con.commit()
 
-def add_songs(n_songs: int = None, tracks_dir: str = None) -> None:
+def add_songs(tracks_dir: str = None, n_songs: int = None) -> None:
     if tracks_dir is None:
-        tracks_dirs = glob.glob("tracks-*")
+        tracks_dirs = glob.glob("tracks*")
         if tracks_dirs:
-            tracks_dir = os.path.abspath(tracks_dirs[0])
+            tracks_dir = None
+            non_zip_dirs = [d for d in tracks_dirs if not d.endswith(".zip")]
+            if non_zip_dirs:
+                tracks_dir = os.path.abspath(non_zip_dirs[0])
+            else:
+                zip_path = os.path.abspath(tracks_dirs[0])
+                extract_dir = os.path.splitext(zip_path)[0]
+                with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                    zip_ref.extractall(extract_dir)
+                tracks_dir = extract_dir
         else:
-            raise FileNotFoundError(f"Could not find tracks folder in {os.getcwd()}")
+            raise FileNotFoundError(f"Could not find folder or zip archive matching the pattern 'tracks*' in {os.getcwd()}")
         
     df = pd.read_csv(os.path.join(tracks_dir, "tracks.csv"))
     df["audio_path"] = df["audio_path"].apply(lambda x: os.path.join(tracks_dir, x))
@@ -60,14 +71,12 @@ def add_songs(n_songs: int = None, tracks_dir: str = None) -> None:
         add_song(row)
 
 def retrieve_song(song_id) -> dict|None:
-    con = sqlite3.connect(library)
-    df = pd.read_sql_query("SELECT * FROM songs WHERE id = ?", con, params=(song_id,))
-    if df.empty:
-        con.close()
-        return None
-    row = df.iloc[0].to_dict()
-    con.close()
-    return row
+    with sqlite3.connect(library) as con:
+        df = pd.read_sql_query("SELECT * FROM songs WHERE id = ?", con, params=(song_id,))
+        if df.empty:
+            return None
+        row = df.iloc[0].to_dict()
+        return row
     
 def retrieve_song_ids() -> list[int]:
     with sqlite3.connect(library) as con:
@@ -93,7 +102,7 @@ def retrieve_hashes(hash_val: int, cur: sqlite3.Cursor) -> tuple[int, int, int]|
     result = cur.execute("SELECT hash_val, time_stamp, song_id FROM hashes WHERE hash_val = ?", (hash_val,)).fetchall()
     return result if result else None
 
-def init_db(tracks_dir: str = None, n_songs: int = None):
+def create_tables():
     if os.path.exists(library):
         os.remove(library)
     with sqlite3.connect(library) as con:
@@ -102,10 +111,3 @@ def init_db(tracks_dir: str = None, n_songs: int = None):
             schema_sql = f.read()
         cur.executescript(schema_sql)
         con.commit()
-    add_songs(n_songs=n_songs)
-
-#def remove_song(song_id) -> None:
-    #with sqlite3.connect(library) as con:
-        #cur = con.cursor()
-        #cur.execute("DELETE FROM songs WHERE id = ?", (song_id,))
-        #con.commit()

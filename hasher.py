@@ -1,3 +1,5 @@
+import os
+
 import librosa
 import numpy as np
 from scipy import signal
@@ -6,7 +8,7 @@ from collections import defaultdict
 
 from DBcontrol import connect_to_db, retrieve_song, \
     retrieve_song_ids, retrieve_hashes, add_hashes, \
-    create_hash_index
+    create_hash_index, create_tables, add_songs
 
 # TODO: visualize constellation map overlaid on spectrogram to interpret parameters of 
 #       scipy.signal.stft, scipy.signal.find_peaks, and result of using filter_peaks()
@@ -245,9 +247,39 @@ def score_hashes(hashes: dict[int, tuple[int, int]]) -> list[tuple[int, int]]:
     
     scores = list(sorted(scores.items(), key=lambda x: x[1][1], reverse=True)) 
     
+    con.close()
     return scores
 
+def init_db(tracks_dir: str = None, n_songs: int = None):
+    """
+    tracks_dir:
+        Path to the mp3 dataset downloaded by `musicdl`. 
+        Default is to look for a folder or zip archive matching the pattern "`tracks*`"
+    n_songs:
+        Take a sample from the top of the tracks dataset. Default is to read all songs
 
+    """
+    create_tables()
+    add_songs(tracks_dir, n_songs)
+    compute_source_hashes()
 
+def recognize_music(sample_wav_path: str) -> list[tuple[int, int]]:
+    """
+    Access top prediction with `recognize_music()[0][0]`
 
-    con.close()
+    returns sorted list of `(song_id, score)` tuples
+
+    ```
+    init_db(tracks_dir = "tracks-2025-07-22", n_songs=5)
+
+    # record from microphone
+    sample_wav_path = record_audio(n_seconds = 5)
+
+    song_id = recognize_music(sample_wav_path)[0][0]
+    """
+    sample, sr = preprocess_audio(sample_wav_path)
+    os.remove(sample_wav_path)
+    constellation = create_constellation_map(sample, sr)
+    hashes = create_hashes(constellation, None, sr)
+    scores = score_hashes(hashes)
+    return scores
