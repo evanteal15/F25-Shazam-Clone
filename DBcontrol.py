@@ -44,22 +44,28 @@ def add_song(track_data: dict) -> None:
         )
         con.commit()
 
-def add_songs(tracks_dir: str = None, n_songs: int = None) -> None:
-    if tracks_dir is None:
-        tracks_dirs = glob.glob("tracks*")
-        if tracks_dirs:
-            tracks_dir = None
-            non_zip_dirs = [d for d in tracks_dirs if not d.endswith(".zip")]
-            if non_zip_dirs:
-                tracks_dir = os.path.abspath(non_zip_dirs[0])
-            else:
-                zip_path = os.path.abspath(tracks_dirs[0])
-                extract_dir = os.path.splitext(zip_path)[0]
-                with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                    zip_ref.extractall(extract_dir)
-                tracks_dir = extract_dir
+
+def find_tracks_dir(tracks_dir: str = None):
+    if tracks_dir is not None:
+        return tracks_dir
+    tracks_dirs = glob.glob("tracks*")
+    if tracks_dirs:
+        tracks_dir = None
+        non_zip_dirs = [d for d in tracks_dirs if not d.endswith(".zip")]
+        if non_zip_dirs:
+            tracks_dir = os.path.abspath(non_zip_dirs[0])
         else:
-            raise FileNotFoundError(f"Could not find folder or zip archive matching the pattern 'tracks*' in {os.getcwd()}")
+            zip_path = os.path.abspath(tracks_dirs[0])
+            extract_dir = os.path.splitext(zip_path)[0]
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(extract_dir)
+            tracks_dir = extract_dir
+    else:
+        raise FileNotFoundError(f"Could not find folder or zip archive matching the pattern 'tracks*' in {os.getcwd()}")
+
+
+def add_songs(tracks_dir: str = None, n_songs: int = None) -> None:
+    tracks_dir = find_tracks_dir(tracks_dir)
         
     df = pd.read_csv(os.path.join(tracks_dir, "tracks.csv"))
     df["audio_path"] = df["audio_path"].apply(lambda x: os.path.join(tracks_dir, x))
