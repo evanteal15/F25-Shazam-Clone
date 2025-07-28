@@ -6,35 +6,36 @@ This project will combine elements of Machine Learning, Signal Analysis, App Dev
 
 # Week 1:
 
-1. 
+1.
 
 # Week 2:
 
-1. 
+1.
 
 # Week 3:
 
-1. 
+1.
 
 # Week 4:
 
-1. 
+1.
 
 # Week 5:
 
-1. 
+1.
 
 # Week 6:
 
-1. 
+1.
 
 # Week 7:
 
-1. 
+1.
 
 # Week 8:
 
-1. 
+1.
 
 Run it yourself!
 
+Download requirements from requirements.txt

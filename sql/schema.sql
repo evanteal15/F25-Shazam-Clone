@@ -5,7 +5,7 @@ CREATE TABLE songs(
     album TEXT,
     artwork_url TEXT,
     spotify_url TEXT UNIQUE,
-    youtube_url TEXT,
+    youtube_url TEXT UNIQUE,
     release_date TEXT,
     duration_s FLOAT NOT NULL,
     audio_path TEXT NOT NULL
