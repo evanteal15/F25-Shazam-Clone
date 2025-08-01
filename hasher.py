@@ -14,11 +14,10 @@ from DBcontrol import connect_to_db, retrieve_song, \
 #       scipy.signal.stft, scipy.signal.find_peaks, and result of using filter_peaks()
 # TODO: break this up so that we can do a parameter sweep
 #       and visualize the results (with a utils script)
-def create_constellation_map(audio, sr) -> list[list[int]]:
+
+def create_spectrogram(audio, sr):
     window_len_s = 0.5
     window_samples = int(window_len_s * sr)
-
-    num_peaks = 20
 
     pad = window_samples - (audio.size % window_samples)
     
@@ -29,15 +28,12 @@ def create_constellation_map(audio, sr) -> list[list[int]]:
     # turns raw audio data into a "spectrogram"
 
     # window:
-    # defaults to a Hann window
+    #https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.windows.hann.html  # default
     #https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.windows.hamming.html
-
     # nperseg: length of each segment
     # noverlap: number of points to overlap between segments
     # nfft: length of the FFT used, if a zero padded FFT is desired
-
-
-
+    #https://docs.scipy.org/doc/scipy/tutorial/signal.html#comparison-with-legacy-implementation
     frequencies, times, stft = signal.stft(audio, sr, 
                                            window="hamming",
                                            nperseg=window_samples,
@@ -45,7 +41,14 @@ def create_constellation_map(audio, sr) -> list[list[int]]:
                                            #nfft=window_samples,
                                            #return_onesided=True,
                                            )
+    return frequencies, stft
     
+
+
+def create_constellation_map(audio, sr) -> list[list[int]]:
+    frequencies, stft = create_spectrogram(audio, sr)
+
+    num_peaks = 20
     constellation_map = []
     
     # iterate through each time window in the spectrogram
@@ -265,9 +268,9 @@ def init_db(tracks_dir: str = None, n_songs: int = None):
 
 def recognize_music(sample_wav_path: str) -> list[tuple[int, int]]:
     """
-    Access top prediction with `recognize_music()[0][0]`
-
     returns sorted list of `(song_id, score)` tuples
+    
+    Access top prediction with `scores[0][0]`
 
     ```
     init_db(tracks_dir = "tracks-2025-07-22", n_songs=5)

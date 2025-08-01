@@ -80,6 +80,7 @@ def main():
     parser.add_argument('--init', action='store_true', help='Initialize the database and exit')
     parser.add_argument('--recognize', action='store_true', help='Run the Shazamesque Algorithm')
     parser.add_argument('--recognize-loop', action='store_true', help='Run the Shazamesque Algorithm on repeat')
+    parser.add_argument('--stft', action='store_true', help='Visualize the Short Time FFT and Constellation Map')
     args = parser.parse_args()
 
     if args.init:
