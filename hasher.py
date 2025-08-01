@@ -12,6 +12,10 @@ from DBcontrol import connect_to_db, retrieve_song, \
 
 # TODO: visualize constellation map overlaid on spectrogram to interpret parameters of 
 #       scipy.signal.stft, scipy.signal.find_peaks, and result of using filter_peaks()
+
+def visualize_map():
+    pass
+
 # TODO: break this up so that we can do a parameter sweep
 #       and visualize the results (with a utils script)
 
