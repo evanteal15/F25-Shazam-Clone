@@ -4,55 +4,101 @@ import librosa
 import numpy as np
 from scipy import signal
 from collections import defaultdict
+import matplotlib.pyplot as plt
 
 
 from DBcontrol import connect_to_db, retrieve_song, \
     retrieve_song_ids, retrieve_hashes, add_hashes, \
     create_hash_index, create_tables, add_songs
 
-# TODO: visualize constellation map overlaid on spectrogram to interpret parameters of 
-#       scipy.signal.stft, scipy.signal.find_peaks, and result of using filter_peaks()
+def convert_to_decibel(magnitude: np.array):
+    """
+    returns spectrogram's amplitude at each freq/time bin, measured in dB
+    """
+    return 20*np.log10(magnitude + 1e-6)
 
-def visualize_map():
-    pass
+def visualize_map(audio_path, show_overlay=True, apply_filter=False, prominence=0, distance=200, height=None, width=None):
+    audio, sr = preprocess_audio(audio_path)
+    frequencies, times, magnitudes = compute_fft(audio, sr)
+    magnitudes = convert_to_decibel(magnitudes)
 
-# TODO: break this up so that we can do a parameter sweep
-#       and visualize the results (with a utils script)
+    # spectrogram
+    plt.figure(figsize=(24, 6))
+    plt.pcolormesh(times, frequencies, magnitudes, shading='gouraud', cmap='inferno')
+    plt.colorbar(label="Magnitude (dB)")
+    plt.ylabel("Frequency (Hz)")
+    plt.xlabel("Time (s)")
+    plt.title("Spectrogram with Constellation Map")
 
-def create_spectrogram(audio, sr):
-    window_len_s = 0.5
-    window_samples = int(window_len_s * sr)
+    # overlay constellation peaks
+    if show_overlay:
+        constellation_map = find_peaks(frequencies, times, magnitudes, prominence=prominence, distance=distance, width=width)
+        if apply_filter:
+            #constellation_map = filter_peaks(constellation_map)
+            constellation_map = filter_peaks(frequencies, times, magnitudes)
 
-    pad = window_samples - (audio.size % window_samples)
+        peak_times = [times[t] for t, f in constellation_map]
+        peak_freqs = [f for t, f in constellation_map]
+        plt.scatter(peak_times, peak_freqs, color='cyan', s=10, marker='x', label="Peaks")
+
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+def compute_fft(audio, sr):
+    #window_len_s = 0.5
+    #window_samples = int(window_len_s * sr)
+    window_size = 1024
+
+    pad = window_size - (audio.size % window_size)
+
     
-    # pad the audio signal to make it a multiple of window_samples
+    # pad the audio signal to make it a multiple of window_size
     audio = np.pad(audio, (0, pad), mode='constant')
-    
-    # do a fast fourier transform on the audio data to get the frequency spectrum
-    # turns raw audio data into a "spectrogram"
+    #audio_duration_s = len(audio) / sr
 
-    # window:
-    #https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.windows.hann.html  # default
-    #https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.windows.hamming.html
+    
+    ##########################
+    # params of signal.stft():
+    ##########################
+    # window: used to avoid the spread of strong true frequencies to their neighbors
+    # https://en.wikipedia.org/wiki/Spectral_leakage
+    # https://dsp.stackexchange.com/questions/63405/spectral-leakage-in-laymans-terms
+    # signal.windows.hann  # default
+    # signal.windows.hamming
     # nperseg: length of each segment
     # noverlap: number of points to overlap between segments
     # nfft: length of the FFT used, if a zero padded FFT is desired
     #https://docs.scipy.org/doc/scipy/tutorial/signal.html#comparison-with-legacy-implementation
+    ##########################
+
+    # do a fast fourier transform on the audio data to get the frequency spectrum
+    # turns raw audio data into a "spectrogram"
+    # fft is used for its O(nlog(n)) time complexity, vs dft's O(n^2) complexity
+    # TODO: this could be done manually for understanding, then later on in the project
+    #       signal.stft could be introduced for its speed and versatility
     frequencies, times, stft = signal.stft(audio, sr, 
                                            window="hamming",
-                                           nperseg=window_samples,
-                                           #noverlap=window_samples // 2,
-                                           #nfft=window_samples,
+                                           nperseg=window_size,
+                                           #noverlap=window_size // 2,
+                                           #nfft=window_size,
                                            #return_onesided=True,
                                            )
-    return frequencies, stft
+
+    # stft is a 2D complex array of shape (len(frequencies), len(times))
+    # complex values encode amplitude and phase offset of each sine wave component
+    # We're interested in just the magnitude / strength of the frequency components
+    # (phase offset information is useful though for time-stretching/pitch-shifting, or 
+    # reconstructing signal via inverse STFT)
+    magnitude = np.abs(stft)
+
+    # frequencies is an array of frequency bin centers (in Hz)
+    # times is an array of time bin centers (in seconds)
+    # magnitude is a 2D real array of shape (len(frequencies), len(times))
+    return frequencies, times, magnitude
     
-
-
-def create_constellation_map(audio, sr) -> list[list[int]]:
-    frequencies, stft = create_spectrogram(audio, sr)
-
-    num_peaks = 20
+def find_peaks(frequencies, times, stft, **kwargs):
+    num_peaks = 10
     constellation_map = []
     
     # iterate through each time window in the spectrogram
@@ -73,53 +119,59 @@ def create_constellation_map(audio, sr) -> list[list[int]]:
         # distance    Minimum frequency bin spacing between peaks. Prevents clustering.
         # prominence  How much a peak stands out from its surroundings. Helps focus on strong peaks.
         # width       Can ensure peaks are broad enough to be meaningful. Optional.
-        peaks, props = signal.find_peaks(spectrum, prominence=0, distance=200)
+        peaks, props = signal.find_peaks(spectrum, height=1, **kwargs)
         n_peaks = min(num_peaks, len(peaks))
+        #if time_idx > 40:
+            #print("peaks")
+            #print(peaks)
+            #print(len(peaks))
+            #print("heights")
+            #print(props["peak_heights"])
+            #print(len(props["peak_heights"]))
+            #exit(0)
+
         # select top n peaks, ranked by prominence
         largest_peaks = np.argpartition(props["prominences"], -n_peaks)[-n_peaks:]
         for peak in peaks[largest_peaks]:
             frequency = frequencies[peak]
             constellation_map.append([time_idx, frequency])
 
+    # assuming window_size = 1024
+    #bands = [(0, 10), (10, 20), (20, 40), (40, 80), (80, 160), (160, 512)]
 
-    #duration_s as parameter to create_constellation_map(), or pass song_id and retrieve from db
-    # TODO:
-    #peaks = filter_peaks(constellation_map=constellation, audioDuration=duration_s)
+
     return constellation_map
 
-# TODO: incorperate binned filtering via filter_peaks() (avoid overrepresenting lower frequencies)
-def filter_peaks(constellation_map: list[list[int]], audioDuration: float) -> list[list[int]]:
-    # logarithmic frequency bands since lower frequencies are amplified and will usually dominate
-    bands = [(0, 10), (10, 20), (20, 40), (40, 80), (80, 160), (160, 512)]
-    
-    peaks = []
-    binDuration = audioDuration / len(constellation_map)
-    for i, bin in enumerate(constellation_map):
-        maxFreqs = []
-        freqInds = []
-        
-        binBandMax = []
-        # get the maximum frequency in each band
-        for band in bands:
-            max = (0, 0)
-            for j, freq in enumerate(bin[band[0]:band[1]]):
-                if freq > max[0]:
-                    max = (freq, j + band[0])
-            binBandMax.append(max)
-        
-        maxFreqs = [max[0] for max in binBandMax]
-        freqInds = [max[1] for max in binBandMax]
-       
-       
-        avgFreqs = np.mean(maxFreqs)
-        
-        # add peaks to the list if they are above the average
-        for j, freq in enumerate(maxFreqs):
-            if freq > avgFreqs:
-                # calculate the absolute time of the peak
-                peak_time = (i * binDuration) + (freqInds[j] * (binDuration / len(bin)))
-                peaks.append((peak_time, freq))
+def create_constellation_map(audio, sr) -> list[list[int]]:
+    frequencies, times, stft = compute_fft(audio, sr)
+    constellation_map = find_peaks(frequencies, times, stft)
+    return constellation_map
 
+
+def filter_peaks(frequencies: np.ndarray, times: np.ndarray, magnitude: np.ndarray) -> list[tuple[int, float]]:
+    """
+    For each time index, keep the highest magnitude peak in each frequency band.
+
+    Returns a list of (time_idx, frequency) pairs.
+    """
+    # logarithmic frequency bands since lower frequencies are amplified and will usually dominate
+    # assuming window_size = 1024
+    bands = [(0, 10), (10, 20), (20, 40), (40, 80), (80, 160), (160, 512)]
+    peaks = []
+
+    n_times = magnitude.shape[1]
+    for time_idx in range(n_times):
+        spectrum = magnitude[:, time_idx]
+        for band_start, band_end in bands:
+            band = spectrum[band_start:band_end]
+            if band.size == 0:
+                continue
+            max_idx_in_band = np.argmax(band)
+            max_mag = band[max_idx_in_band]
+            if max_mag > 0:
+                freq_idx = band_start + max_idx_in_band
+                freq = frequencies[freq_idx]
+                peaks.append((time_idx, freq))
     return peaks
 
 def create_address(anchor: tuple[int, int], target: tuple[int, int], sr: int) -> int:
@@ -135,7 +187,8 @@ def create_address(anchor: tuple[int, int], target: tuple[int, int], sr: int) ->
     # MP3 files are downloaded at 48 kHz sampling rate
     # preprocess_audio() resamples to 11 kHz
     # => max frequency is sr/2 = 5512.5
-    # use a value slightly higher than this:
+    # (by the Nyquist–Shannon sampling theorem)
+    # use a value slightly higher than this (to avoid overflow I think?):
     max_frequency = np.ceil(sr / 2) + 10
 
     # transform frequencies to fit in 10 bits (0-1023)
@@ -197,6 +250,8 @@ def preprocess_audio(audio_path, sr = 11_025):
     #       within 20-5512 Hz range
     #
     #       Fs == sr == sample_rate
+    # uses a low pass filter to filter the higher frequencies to avoid aliasing (Nyquist-Shannon)
+    # then takes sequential samples of size 4 and computes average of each sample
     audio, sr = librosa.load(audio_path, sr=sr)
 
     ## equivalent to:

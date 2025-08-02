@@ -1,6 +1,6 @@
 import pyaudio
 import wave
-from hasher import init_db, recognize_music
+from hasher import init_db, recognize_music, visualize_map
 from DBcontrol import retrieve_song
 import argparse
 
@@ -78,19 +78,23 @@ def shazamesque():
 def main():
     parser = argparse.ArgumentParser(description="Music recognition CLI")
     parser.add_argument('--init', action='store_true', help='Initialize the database and exit')
-    parser.add_argument('--recognize', action='store_true', help='Run the Shazamesque Algorithm')
-    parser.add_argument('--recognize-loop', action='store_true', help='Run the Shazamesque Algorithm on repeat')
-    parser.add_argument('--stft', action='store_true', help='Visualize the Short Time FFT and Constellation Map')
+    parser.add_argument('--recognize', action='store_true', help='Run the Shazamesque Algorithm on repeat')
+    parser.add_argument('--visualize', action='store_true', help='Visualize constellation map overlaid on spectrogram')
     args = parser.parse_args()
 
     if args.init:
         init_db(tracks_dir="tracks-2025-07-22")
         print("Database initialized with songs and hashes.")
         return
-    elif args.recognize:
-        shazamesque()
+    elif args.visualize:
+        #visualize_map("sacrifice.mp3", prominence=30, distance=200, height=100)
+        visualize_map("sacrifice.mp3", prominence=30)
+        #visualize_map("sacrifice.mp3", apply_filter=True, prominence=30)
+        #visualize_map("sacrifice.mp3", prominence=30, distance=200)
+        #visualize_map("sacrifice.mp3", prominence=30, distance=200, height=20)
+        #visualize_map("sacrifice.mp3", prominence=30, distance=200, width=20)
         return
-    elif args.recognize_loop:
+    elif args.recognize:
         print("Ctrl+C to exit")
         try:
             while True:
