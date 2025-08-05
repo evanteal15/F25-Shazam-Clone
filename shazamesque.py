@@ -1,6 +1,6 @@
 import pyaudio
 import wave
-from hasher import init_db, recognize_music, visualize_map
+from hasher import init_db, recognize_music, visualize_map_interactive
 from DBcontrol import retrieve_song
 import argparse
 
@@ -87,12 +87,7 @@ def main():
         print("Database initialized with songs and hashes.")
         return
     elif args.visualize:
-        #visualize_map("sacrifice.mp3", prominence=30, distance=200, height=100)
-        visualize_map("sacrifice.mp3", prominence=30)
-        #visualize_map("sacrifice.mp3", apply_filter=True, prominence=30)
-        #visualize_map("sacrifice.mp3", prominence=30, distance=200)
-        #visualize_map("sacrifice.mp3", prominence=30, distance=200, height=20)
-        #visualize_map("sacrifice.mp3", prominence=30, distance=200, width=20)
+        visualize_map_interactive("sacrifice.mp3")
         return
     elif args.recognize:
         print("Ctrl+C to exit")

@@ -5,6 +5,7 @@ import numpy as np
 from scipy import signal
 from collections import defaultdict
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 
 
 from DBcontrol import connect_to_db, retrieve_song, \
@@ -17,45 +18,95 @@ def convert_to_decibel(magnitude: np.array):
     """
     return 20*np.log10(magnitude + 1e-6)
 
-def visualize_map(audio_path, show_overlay=True, apply_filter=False, prominence=0, distance=200, height=None, width=None):
+def visualize_map_interactive(audio_path):
     audio, sr = preprocess_audio(audio_path)
     frequencies, times, magnitudes = compute_fft(audio, sr)
     magnitudes = convert_to_decibel(magnitudes)
+    print(magnitudes.shape)
 
-    # spectrogram
-    plt.figure(figsize=(24, 6))
-    plt.pcolormesh(times, frequencies, magnitudes, shading='gouraud', cmap='inferno')
-    plt.colorbar(label="Magnitude (dB)")
-    plt.ylabel("Frequency (Hz)")
-    plt.xlabel("Time (s)")
-    plt.title("Spectrogram with Constellation Map")
+    constellation_map = find_peaks(frequencies, times, magnitudes)
+    peak_times = [times[t] for t, f in constellation_map]
+    peak_freqs = [f for t, f in constellation_map]
 
-    # overlay constellation peaks
-    if show_overlay:
-        constellation_map = find_peaks(frequencies, times, magnitudes, prominence=prominence, distance=distance, width=width)
-        if apply_filter:
-            #constellation_map = filter_peaks(constellation_map)
-            constellation_map = filter_peaks(frequencies, times, magnitudes)
+    fig = go.Figure()
 
-        peak_times = [times[t] for t, f in constellation_map]
-        peak_freqs = [f for t, f in constellation_map]
-        plt.scatter(peak_times, peak_freqs, color='cyan', s=10, marker='x', label="Peaks")
+    fig.add_trace(go.Heatmap(
+        z=magnitudes,
+        x=times,
+        y=frequencies,
+        colorscale='Inferno',
+        colorbar=dict(title='Magnitude (dB)'),
+        zsmooth='best',
+        name="Spectrogram"
+    ))
 
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
+    fig.add_trace(go.Scatter(
+        x=peak_times,
+        y=peak_freqs,
+        mode='markers',
+        marker=dict(size=7, color='white', symbol='square-open'),
+        name='Constellation Map',
+        visible=True
+    ))
 
-def compute_fft(audio, sr):
-    #window_len_s = 0.5
-    #window_samples = int(window_len_s * sr)
-    window_size = 1024
+    # overlay constellation peaks with a toggleable checkbox
+    fig.update_layout(
+        title='Spectrogram with Constellation Map',
+        xaxis_title='Time (s)',
+        yaxis_title='Frequency (Hz)',
+        yaxis=dict(
+            range=[frequencies.min(), frequencies.max()],
+            autorange=False  # Prevent auto-padding when scatter appears
+        ),
+        xaxis=dict(
+            range=[times.min(), times.max()],
+            autorange=False  # Optional: lock X-axis too
+        ),
+        margin=dict(t=40, b=40, l=60, r=40),
+        updatemenus=[
+            dict(
+                type="buttons",
+                direction="right",
+                buttons=[
+                    dict(label="Show Peaks",
+                         method="update",
+                         args=[{"visible": [True, True]}]),
+                    dict(label="Hide Peaks",
+                         method="update",
+                         args=[{"visible": [True, False]}]),
+                ],
+                showactive=True,
+                x=1.05,
+                xanchor="left",
+                y=1.15,
+                yanchor="top"
+            )
+        ]
+    )
 
-    pad = window_size - (audio.size % window_size)
+    fig.show()
 
+
+def compute_fft(audio, sr, n_fft: int = None, hop_length: int = None):
+    """
+    compute a fast fourier transform on the audio data to get the frequency spectrum
+
+    turns raw audio data into a "spectrogram"
+
+    n_fft (int): FFT size; number of samples used to calculate each FFT
+
+    hop_length (int): number of samples the window slides over each time (step size)
     
-    # pad the audio signal to make it a multiple of window_size
-    audio = np.pad(audio, (0, pad), mode='constant')
-    #audio_duration_s = len(audio) / sr
+    """
+    if n_fft is None:
+        #window_len_s = 0.5
+        #window_samples = int(window_len_s * sr)
+        fft_window_size = 1024
+    else:
+        fft_window_size=n_fft
+
+    if hop_length is None:
+        hop_length = fft_window_size + (fft_window_size // 2)
 
     
     ##########################
@@ -66,27 +117,24 @@ def compute_fft(audio, sr):
     # https://dsp.stackexchange.com/questions/63405/spectral-leakage-in-laymans-terms
     # signal.windows.hann  # default
     # signal.windows.hamming
-    # nperseg: length of each segment
-    # noverlap: number of points to overlap between segments
-    # nfft: length of the FFT used, if a zero padded FFT is desired
     #https://docs.scipy.org/doc/scipy/tutorial/signal.html#comparison-with-legacy-implementation
     ##########################
 
-    # do a fast fourier transform on the audio data to get the frequency spectrum
-    # turns raw audio data into a "spectrogram"
     # fft is used for its O(nlog(n)) time complexity, vs dft's O(n^2) complexity
     # TODO: this could be done manually for understanding, then later on in the project
-    #       signal.stft could be introduced for its speed and versatility
-    frequencies, times, stft = signal.stft(audio, sr, 
+    #       signal.stft could be introduced for speed and versatility
+    frequencies, times, stft = signal.stft(audio, fs=sr, 
                                            window="hamming",
-                                           nperseg=window_size,
+                                           nperseg=fft_window_size,
+                                           noverlap=fft_window_size - hop_length,
+                                           padded=True,
+                                           return_onesided=True
                                            #noverlap=window_size // 2,
-                                           #nfft=window_size,
-                                           #return_onesided=True,
                                            )
 
+
     # stft is a 2D complex array of shape (len(frequencies), len(times))
-    # complex values encode amplitude and phase offset of each sine wave component
+    # complex values of stft encode amplitude and phase offset of each sine wave component
     # We're interested in just the magnitude / strength of the frequency components
     # (phase offset information is useful though for time-stretching/pitch-shifting, or 
     # reconstructing signal via inverse STFT)
@@ -95,17 +143,98 @@ def compute_fft(audio, sr):
     # frequencies is an array of frequency bin centers (in Hz)
     # times is an array of time bin centers (in seconds)
     # magnitude is a 2D real array of shape (len(frequencies), len(times))
+    #           that for each time step gives a spectrum: an array of frequency bins
     return frequencies, times, magnitude
-    
-def find_peaks(frequencies, times, stft, **kwargs):
-    num_peaks = 10
+
+
+
+def peaks_are_duplicate(peak1: tuple[int, float] = None, peak2: tuple[int,float] = None):
+    if peak1 is None or peak2 is None:
+        return False
+    delta_time = 10
+    delta_freq = 300
+    t1, f1 = peak1
+    t2, f2 = peak2
+    if abs(t1 - t2) <= delta_time and abs(f1 - f2) <= delta_freq:
+        return True
+    return False
+
+def remove_duplicate_peaks(peaks: list[tuple[int, float]]):
+    peaks=peaks.copy()
+    peaks.sort(key=lambda x: x[0])
+    # for each peak, search for duplicates within the next 10 peaks (ordered by time)
+    for i in range(len(peaks)):
+        for j in range(len(peaks[i:min(i+15, len(peaks)-1)])):
+            j = j+i+1
+            if peaks_are_duplicate(peaks[i], peaks[j]):
+                peaks[j] = None
+    return [peak for peak in peaks if peak is not None]
+
+
+
+def find_peaks(frequencies, times, magnitude,
+                             window_size=25,
+                             candidates_per_band=5):
+    """
+    find the peaks in the spectrum using a sliding window
+
+    within each window spanning the entire frequency range, find the local maxima within sub tiles of the window, then select `peaks_per_window` peaks across all local maxima
+
+    this helps avoid peaks from being clustered too close together
+
+    use `sub_tile_height=None` to just extract top `peaks_per_window` peaks per window across the audio
+    """
     constellation_map = []
-    
-    # iterate through each time window in the spectrogram
-    for time_idx, window in enumerate(stft.T):
-        spectrum = np.abs(window)
         
-        ## find the peaks in the spectrum
+    # Attempt 3: sliding window across time, extract top peaks from each window after
+    #            computing local maxima within frequency bands
+    num_freq_bins, num_time_bins = magnitude.shape
+    constellation_map = []
+
+    # assuming fft_window_size = 1024
+    bands = [(0, 10), (10, 20), (20, 40), (40, 80), (80, 160), (160, 512)]
+
+    # slide a window across time axis
+    # height: entire frequency range
+    # width:  window_size
+    for t_start in range(0, num_time_bins, window_size):
+        t_end = min(t_start + window_size, num_time_bins)
+        window = magnitude[:, t_start:t_end]
+
+        peak_candidates = []
+
+        # find local maxima within bands of the window
+        # height: variable based on current band
+        # width:  window_size
+        #for f_start in range(0, num_freq_bins, sub_tile_height):
+            #f_end = min(f_start + sub_tile_height, num_freq_bins)
+        for f_start, f_end in bands:
+            sub_tile = window[f_start:f_end, :]
+
+            # Flatten and get indices of top candidates in this frequency band
+            flat_indices = np.argpartition(sub_tile.ravel(), -candidates_per_band)[-candidates_per_band:]
+
+            for idx in flat_indices:
+                f_local, t_local = np.unravel_index(idx, sub_tile.shape)
+                f_idx = f_start + f_local
+                t_idx = t_start + t_local
+                mag = magnitude[f_idx, t_idx]
+                peak_candidates.append((t_idx, f_idx, mag))
+
+        # Keep top peaks per time window (sorted by magnitude)
+        proportion_keep = 0.95
+        peak_candidates.sort(key=lambda x: x[2], reverse=True)
+        for t_idx, f_idx, _ in peak_candidates[0:int(np.floor(proportion_keep*len(peak_candidates)))]:
+            freq = frequencies[f_idx]
+            peak = (t_idx, freq)
+            constellation_map.append(peak)
+
+    return remove_duplicate_peaks(constellation_map)
+
+
+    # Attempt 1: find lots of peaks using signal.find_peaks(), keep top ten highest from each window
+    # iterate through each time window in the spectrogram
+    #for time_idx, window in enumerate(magnitude.T):
         #peaks, props = signal.find_peaks(spectrum, height=0.1, distance=5)
         ## sort the peaks by their heights
         #sorted_peaks = sorted(peaks, key=lambda x: spectrum[x], reverse=True)
@@ -114,65 +243,51 @@ def find_peaks(frequencies, times, stft, **kwargs):
         ## add the top peaks to the constellation map
         #constellation_map.append(top_peaks)
 
-        ## find the peaks in the spectrum
-        # height      Minimum power threshold (in dB). Higher = fewer peaks.
-        # distance    Minimum frequency bin spacing between peaks. Prevents clustering.
-        # prominence  How much a peak stands out from its surroundings. Helps focus on strong peaks.
-        # width       Can ensure peaks are broad enough to be meaningful. Optional.
-        peaks, props = signal.find_peaks(spectrum, height=1, **kwargs)
-        n_peaks = min(num_peaks, len(peaks))
-        #if time_idx > 40:
-            #print("peaks")
-            #print(peaks)
-            #print(len(peaks))
-            #print("heights")
-            #print(props["peak_heights"])
-            #print(len(props["peak_heights"]))
-            #exit(0)
-
+    # Attempt 2: find lots of peaks using signal.find_peaks(), then find top
+    #            ten per window by "prominence": a metric measuring distance from other peaks
+    # height      Minimum power threshold (in dB). Higher = fewer peaks.
+    # distance    Minimum frequency bin spacing between peaks. Prevents clustering.
+    # prominence  How much a peak stands out from its surroundings. Helps focus on strong peaks.
+    # width       Can ensure peaks are broad enough to be meaningful. Optional.
+    # iterate through each time window in the spectrogram
+    #for time_idx, window in enumerate(magnitude.T):
+        #peaks, props = signal.find_peaks(spectrum, height=1, **kwargs)
+        #n_peaks = min(num_peaks, len(peaks))
         # select top n peaks, ranked by prominence
-        largest_peaks = np.argpartition(props["prominences"], -n_peaks)[-n_peaks:]
-        for peak in peaks[largest_peaks]:
-            frequency = frequencies[peak]
-            constellation_map.append([time_idx, frequency])
+        #largest_peaks = np.argpartition(props["prominences"], -n_peaks)[-n_peaks:]
 
-    # assuming window_size = 1024
+
+def create_constellation_map(audio, sr, hop_length=None) -> list[list[int]]:
+    frequencies, times, magnitude = compute_fft(audio, sr, hop_length=hop_length)
+    constellation_map = find_peaks(frequencies, times, magnitude)
+    return constellation_map
+
+
+#def filter_peaks(frequencies: np.ndarray, times: np.ndarray, magnitude: np.ndarray) -> list[tuple[int, float]]:
+    #"""
+    #For each time index, keep the highest magnitude peak in each frequency band.
+
+    #Returns a list of (time_idx, frequency) pairs.
+    #"""
+    ## logarithmic frequency bands since lower frequencies are amplified and will usually dominate
+    ## assuming window_size = 1024
     #bands = [(0, 10), (10, 20), (20, 40), (40, 80), (80, 160), (160, 512)]
+    #peaks = []
 
-
-    return constellation_map
-
-def create_constellation_map(audio, sr) -> list[list[int]]:
-    frequencies, times, stft = compute_fft(audio, sr)
-    constellation_map = find_peaks(frequencies, times, stft)
-    return constellation_map
-
-
-def filter_peaks(frequencies: np.ndarray, times: np.ndarray, magnitude: np.ndarray) -> list[tuple[int, float]]:
-    """
-    For each time index, keep the highest magnitude peak in each frequency band.
-
-    Returns a list of (time_idx, frequency) pairs.
-    """
-    # logarithmic frequency bands since lower frequencies are amplified and will usually dominate
-    # assuming window_size = 1024
-    bands = [(0, 10), (10, 20), (20, 40), (40, 80), (80, 160), (160, 512)]
-    peaks = []
-
-    n_times = magnitude.shape[1]
-    for time_idx in range(n_times):
-        spectrum = magnitude[:, time_idx]
-        for band_start, band_end in bands:
-            band = spectrum[band_start:band_end]
-            if band.size == 0:
-                continue
-            max_idx_in_band = np.argmax(band)
-            max_mag = band[max_idx_in_band]
-            if max_mag > 0:
-                freq_idx = band_start + max_idx_in_band
-                freq = frequencies[freq_idx]
-                peaks.append((time_idx, freq))
-    return peaks
+    #n_times = magnitude.shape[1]
+    #for time_idx in range(n_times):
+        #spectrum = magnitude[:, time_idx]
+        #for band_start, band_end in bands:
+            #band = spectrum[band_start:band_end]
+            #if band.size == 0:
+                #continue
+            #max_idx_in_band = np.argmax(band)
+            #max_mag = band[max_idx_in_band]
+            #if max_mag > 0:
+                #freq_idx = band_start + max_idx_in_band
+                #freq = frequencies[freq_idx]
+                #peaks.append((time_idx, freq))
+    #return peaks
 
 def create_address(anchor: tuple[int, int], target: tuple[int, int], sr: int) -> int:
     # get relevant information from the anchor and target points
@@ -276,7 +391,7 @@ def compute_source_hashes(song_ids: list[int] = None):
         audio_path = song["audio_path"]
 
         audio, sr = preprocess_audio(audio_path)
-        constellation = create_constellation_map(audio, sr)
+        constellation = find_peaks(audio, sr)
         hashes = create_hashes(constellation, song_id, sr)
         add_hashes(hashes)
     
@@ -341,7 +456,7 @@ def recognize_music(sample_wav_path: str) -> list[tuple[int, int]]:
     """
     sample, sr = preprocess_audio(sample_wav_path)
     os.remove(sample_wav_path)
-    constellation = create_constellation_map(sample, sr)
+    constellation = find_peaks(sample, sr)
     hashes = create_hashes(constellation, None, sr)
     scores = score_hashes(hashes)
     return scores
