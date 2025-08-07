@@ -85,16 +85,18 @@ def main():
     args = parser.parse_args()
 
     if args.init:
-        init_db(tracks_dir="tracks-2025-07-22")
+        init_db(tracks_dir="tracks-2025-07-22", specific_songs=["Sacrifice", "No Idea"])
         print("Database initialized with songs and hashes.")
         return
     elif args.constellation:
         visualize_map_interactive("sacrifice.mp3")
+        #visualize_map_interactive("sacrifice_smallcopy.wav")
         #visualize_map_interactive("sacrifice_sample.wav")
         return
     elif args.scoring:
-        visualize_scoring("sacrifice_copy.wav")
-        #visualize_scoring("sacrifice_sample.wav")
+        #visualize_scoring("sacrifice_copy.wav")
+        #visualize_scoring("sacrifice_smallcopy.wav")
+        visualize_scoring("sacrifice_sample.wav")
         return
     elif args.recognize:
         print("Ctrl+C to exit")

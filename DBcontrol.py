@@ -64,7 +64,7 @@ def find_tracks_dir(tracks_dir: str = None):
         raise FileNotFoundError(f"Could not find folder or zip archive matching the pattern 'tracks*' in {os.getcwd()}")
 
 
-def add_songs(tracks_dir: str = None, n_songs: int = None) -> None:
+def add_songs(tracks_dir: str = None, n_songs: int = None, specific_songs: list[str] = None) -> None:
     tracks_dir = find_tracks_dir(tracks_dir)
         
     df = pd.read_csv(os.path.join(tracks_dir, "tracks.csv"))
@@ -74,7 +74,11 @@ def add_songs(tracks_dir: str = None, n_songs: int = None) -> None:
         df = df.head(n_songs)
 
     for row in df.to_dict(orient="records"):
-        add_song(row)
+        if specific_songs is not None: 
+            if row["track_name"] in specific_songs:
+                add_song(row)
+        else:
+            add_song(row)
 
 def retrieve_song(song_id) -> dict|None:
     with sqlite3.connect(library) as con:

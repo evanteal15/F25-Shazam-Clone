@@ -171,10 +171,58 @@ def remove_duplicate_peaks(peaks: list[tuple[int, float]]):
     return [peak for peak in peaks if peak is not None]
 
 
-
 def find_peaks(frequencies, times, magnitude,
-                             window_size=1,
-                             candidates_per_band=5):
+                             window_size=10,
+                             candidates_per_band=6):
+    #return find_peaks_windowed(frequencies, times, magnitude, window_size, candidates_per_band)
+    return find_peaks_max_prominence(frequencies, times, magnitude, window_size, candidates_per_band)
+    #return find_peaks_max_magnitude(frequencies, times, magnitude, window_size, candidates_per_band)
+
+def find_peaks_max_magnitude(frequencies, times, magnitude, window_size, candidates_per_band):
+    # Attempt 1: find lots of peaks using signal.find_peaks(), keep top ten highest from each window
+    # iterate through each time window in the spectrogram
+    constellation_map = []
+    num_peaks = 20
+    for time_idx, window in enumerate(magnitude.T):
+        #peaks, props = signal.find_peaks(window, height=0.1, distance=5)
+        #peaks, props = signal.find_peaks(window, height=0.1, prominence=0, distance=200)
+        peaks, props = signal.find_peaks(window, height=0.1, prominence=0, distance=200)
+        n_peaks = min(num_peaks, len(peaks))
+        largest_peaks = np.argpartition(peaks, -n_peaks)[-n_peaks:]
+        print(peaks)
+        for peak in peaks[largest_peaks]:
+            frequency = frequencies[peak]
+            constellation_map.append([time_idx, frequency])
+    return constellation_map
+
+def find_peaks_max_prominence(frequencies, times, magnitude, window_size, candidates_per_band):
+    # Attempt 2: find lots of peaks using signal.find_peaks(), then find top
+    #            ten per window by "prominence": a metric measuring distance from other peaks
+    # height      Minimum power threshold (in dB). Higher = fewer peaks.
+    # distance    Minimum frequency bin spacing between peaks. Prevents clustering.
+    # prominence  How much a peak stands out from its surroundings. Helps focus on strong peaks.
+    # width       Can ensure peaks are broad enough to be meaningful. Optional.
+    # iterate through each time window in the spectrogram
+    #for time_idx, window in enumerate(magnitude.T):
+        #peaks, props = signal.find_peaks(spectrum, height=1, **kwargs)
+        #n_peaks = min(num_peaks, len(peaks))
+        # select top n peaks, ranked by prominence
+        #largest_peaks = np.argpartition(props["prominences"], -n_peaks)[-n_peaks:]
+    constellation_map = []
+    num_peaks = 20
+    for time_idx, window in enumerate(magnitude.T):
+        #peaks, props = signal.find_peaks(window, height=0.1, distance=5)
+        peaks, props = signal.find_peaks(window, prominence=0, distance=200)
+        n_peaks = min(num_peaks, len(peaks))
+        largest_peaks = np.argpartition(props["prominences"], -n_peaks)[-n_peaks:]
+        for peak in peaks[largest_peaks]:
+            frequency = frequencies[peak]
+            constellation_map.append([time_idx, frequency])
+    return constellation_map
+
+def find_peaks_windowed(frequencies, times, magnitude,
+                             window_size=10,
+                             candidates_per_band=6):
     """
     find the peaks in the spectrum using a sliding window
 
@@ -192,8 +240,10 @@ def find_peaks(frequencies, times, magnitude,
     constellation_map = []
 
     # assuming fft_window_size = 1024
-    #bands = [(0, 10), (10, 20), (20, 40), (40, 80), (80, 160), (160, 512)]
-    bands = [(0, 512)]
+    bands = [(0, 10), (10, 20), (20, 40), (40, 80), (80, 160), (160, 512)]
+    #bands = [(0, 512)]
+    #bands = [(0, 30), (30, 60), (60, 90), (90, 120), (120, 160), (160, 330), (330, 512)]
+    bands = [(0, 40), (40, 80), (80, 160), (160, 240), (240, 512)]
 
     # slide a window across time axis
     # height: entire frequency range
@@ -320,7 +370,7 @@ def create_address(anchor: tuple[int, int], target: tuple[int, int], sr: int) ->
     hash = int(anchor_freq) | (int(target_freq) << 10) | (int(deltaT) << 20)
     return hash
 
-def create_hashes(peaks, song_id: int = None, sr: int = None, fanout_t=10, fanout_f=1000):
+def create_hashes(peaks, song_id: int = None, sr: int = None, fanout_t=100, fanout_f=3000):
     """
     fanout:
         specify the fan-out factor used for determining the target zone
@@ -474,15 +524,15 @@ def score_hashes(hashes: dict[int, tuple[int, int]]) -> tuple[list[tuple[int, in
 
         # Then we calculate a histogram of these deltaT values
         # and scan for a peak.
-        hist = defaultdict(lambda: 0)
-        for dT in deltaT_values:
-            hist[dT] += 1
-        #hist, bin_edges = np.histogram(deltaT_values, bins=len(np.unique(deltaT_values)))
+        #hist = defaultdict(lambda: 0)
+        #for dT in deltaT_values:
+            #hist[dT] += 1
+        hist, bin_edges = np.histogram(deltaT_values, bins=max(len(np.unique(deltaT_values)), 10))
 
         # The score of the match is the number of matching points
         # in the histogram peak
-        #scores[song_id] = hist.max()
-        scores[song_id] = max(hist.values()) if hist else 0
+        scores[song_id] = hist.max()
+        #scores[song_id] = max(hist.values()) if hist else 0
 
     scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
     con.close()
@@ -490,7 +540,7 @@ def score_hashes(hashes: dict[int, tuple[int, int]]) -> tuple[list[tuple[int, in
 
 
 
-def init_db(tracks_dir: str = None, n_songs: int = None):
+def init_db(tracks_dir: str = None, n_songs: int = None, specific_songs: list[str] = None):
     """
     tracks_dir:
         Path to the mp3 dataset downloaded by `musicdl`. 
@@ -500,7 +550,7 @@ def init_db(tracks_dir: str = None, n_songs: int = None):
 
     """
     create_tables()
-    add_songs(tracks_dir, n_songs)
+    add_songs(tracks_dir, n_songs, specific_songs)
     compute_source_hashes()
 
 def recognize_music(sample_wav_path: str, remove_sample: bool = True) -> list[tuple[int, int]]:
@@ -527,14 +577,16 @@ def recognize_music(sample_wav_path: str, remove_sample: bool = True) -> list[tu
 
 def visualize_scoring(sample_wav_path: str) -> None:
     scores, time_pair_bins = recognize_music(sample_wav_path, remove_sample=False)
-    song_ids = [score[0] for score in scores[:5]]
+    song_ids = [score[0] for score in scores[:min(len(scores), 5)]]
     if 20 not in song_ids:
         song_ids.append(20)
     for song_id in song_ids:
         time_pair_bin = time_pair_bins[song_id]
         song = retrieve_song(song_id)
+        if song is None:
+            continue
         deltaT_values = [sourceT - sampleT for (sourceT, sampleT) in time_pair_bin]
-        hist, bin_edges = np.histogram(deltaT_values, bins=len(np.unique(deltaT_values)))
+        hist, bin_edges = np.histogram(deltaT_values, bins=max(len(np.unique(deltaT_values)), 10))
         fig, axes = plt.subplots(2, 1, figsize=(8, 10))
         fig.suptitle(f"{song['title']} by {song['artist']}", fontsize=16)
 
