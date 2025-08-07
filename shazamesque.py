@@ -71,7 +71,7 @@ def shazamesque():
         sample_wav_path = record_audio()
         print("🔎 Searching for a match", end="\r")
         scores = recognize_music(sample_wav_path)
-        song_id = scores[0][0]
+        song_id = max(scores, key=scores.get)
         display_result(song_id)
         display_scores(scores)
 

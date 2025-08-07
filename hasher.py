@@ -399,33 +399,110 @@ def compute_source_hashes(song_ids: list[int] = None):
 
 
 def score_hashes(hashes: dict[int, tuple[int, int]]) -> list[tuple[int, int]]:
-    # TODO: refactor and comment
     con, cur = connect_to_db()
-    matches_per_song = defaultdict(list)
+
+    # 2.3: Searching and Scoring
+    
+    # Each hash from the sample is used to search in the 
+    # database for matching hashes
+
+    # For each matching hash found in the database, the
+    # corresponding offset times from the beginning of the
+    # sample and database files are associated into time pairs.
+
+    # The time pairs are distributed into bins according to the 
+    # track ID associated with the matching database hash
+
+    time_pair_bins = defaultdict(set)
     for address, (sampleT, _) in hashes.items():
         matching_hashes = retrieve_hashes(address, cur)
         if matching_hashes is not None:
             for _, sourceT, song_id in matching_hashes:
-                matches_per_song[song_id].append((address, sampleT, sourceT))
-                
-    # time coherience score
-    scores = {}
-    for song_id, matches in matches_per_song.items():
-        song_scores_by_offset = defaultdict(int)
-        for address, sampleT, sourceT in matches:
-            deltaT = sourceT - sampleT
-            song_scores_by_offset[deltaT] += 1
+                time_pair_bins[song_id].add((sourceT, sampleT))
+            
+    # After all sample hashes have been used to search in the
+    # database to form matching time pairs, the bins are scanned
+    # for matches. 
 
-        max_score = (0, 0)
-        for offset, score in song_scores_by_offset.items():
-            if score > max_score[1]:
-                max_score = (offset, score)
-        scores[song_id] = max_score
+    #################################################
+    # Histogram Method for scanning for matches     #
+    # (detecting diagonal line within scatterplot)  #
+    #################################################
+
+    # Within each bin, the set of time pairs represents
+    # a scatter plot of association between the sample and database
+    # sound files.
+
+    # If the files match, matching features should occur at similar
+    # relative offsets from the beginning of the file, i.e. a sequence
+    # of hashes in one file should also occur in the matching file with
+    # the same relative time sequence.
+
+    # The problem of deciding wheter a match has been found reduces to
+    # detecting a significant cluster of points forming a diagonal line
+    # within the scatterplot.
+
+    # Assume that the slope of the diagonal line is 1.0
+
+    # Then corresponding times of matching features between matching
+    # files have the relationship:
+    # sourceT = sampleT + offset
+    # => offset = sourceT - sampleT
+
+    scores = {}
+    for song_id, time_pair_bin in time_pair_bins.items():
+        # For each (sourceT, sampleT) coordinate in the scatterplot,
+        # we calculate:
+        # deltaT = sourceT - sampleT
+        deltaT_values = [sourceT - sampleT for (sourceT, sampleT) in time_pair_bin]
+
+        # Then we calculate a histogram of these deltaT values
+        # and scan for a peak.
+        hist, bin_edges = np.histogram(deltaT_values, bins=max(deltaT_values) - min(deltaT_values))
+
+        # The score of the match is the number of matching points
+        # in the histogram peak
+        scores[song_id] = hist.max()
+
+    return scores, time_pair_bins
+
+def visualize_scoring(scores: dict[int, int], time_pair_bins: dict[int, set[tuple[int, int]]]) -> None:
+    #plt.bar(bin_edges[:-1], counts, width=np.diff(bin_edges), edgecolor='black', align='edge')
+    #plt.xlabel('Offset t')
+    #plt.ylabel('Frequency')
+    #plt.title('Histogram')
+    #plt.show()
+    pass
+
+
+#def score_hashes(hashes: dict[int, tuple[int, int]]) -> list[tuple[int, int]]:
+    ## TODO: refactor and comment
+    #con, cur = connect_to_db()
+    #matches_per_song = defaultdict(list)
+    #for address, (sampleT, _) in hashes.items():
+        #matching_hashes = retrieve_hashes(address, cur)
+        #if matching_hashes is not None:
+            #for _, sourceT, song_id in matching_hashes:
+                #matches_per_song[song_id].append((address, sampleT, sourceT))
+                
+    ## time coherience score
+    #scores = {}
+    #for song_id, matches in matches_per_song.items():
+        #song_scores_by_offset = defaultdict(int)
+        #for address, sampleT, sourceT in matches:
+            #deltaT = sourceT - sampleT
+            #song_scores_by_offset[deltaT] += 1
+
+        #max_score = (0, 0)
+        #for offset, score in song_scores_by_offset.items():
+            #if score > max_score[1]:
+                #max_score = (offset, score)
+        #scores[song_id] = max_score
     
-    scores = list(sorted(scores.items(), key=lambda x: x[1][1], reverse=True)) 
+    #scores = list(sorted(scores.items(), key=lambda x: x[1][1], reverse=True)) 
     
-    con.close()
-    return scores
+    #con.close()
+    #return scores
 
 def init_db(tracks_dir: str = None, n_songs: int = None):
     """
@@ -458,5 +535,5 @@ def recognize_music(sample_wav_path: str) -> list[tuple[int, int]]:
     os.remove(sample_wav_path)
     constellation = find_peaks(sample, sr)
     hashes = create_hashes(constellation, None, sr)
-    scores = score_hashes(hashes)
+    scores, _ = score_hashes(hashes)
     return scores
