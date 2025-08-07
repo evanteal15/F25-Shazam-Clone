@@ -173,7 +173,7 @@ def remove_duplicate_peaks(peaks: list[tuple[int, float]]):
 
 
 def find_peaks(frequencies, times, magnitude,
-                             window_size=25,
+                             window_size=1,
                              candidates_per_band=5):
     """
     find the peaks in the spectrum using a sliding window
@@ -192,7 +192,8 @@ def find_peaks(frequencies, times, magnitude,
     constellation_map = []
 
     # assuming fft_window_size = 1024
-    bands = [(0, 10), (10, 20), (20, 40), (40, 80), (80, 160), (160, 512)]
+    #bands = [(0, 10), (10, 20), (20, 40), (40, 80), (80, 160), (160, 512)]
+    bands = [(0, 512)]
 
     # slide a window across time axis
     # height: entire frequency range
@@ -319,7 +320,7 @@ def create_address(anchor: tuple[int, int], target: tuple[int, int], sr: int) ->
     hash = int(anchor_freq) | (int(target_freq) << 10) | (int(deltaT) << 20)
     return hash
 
-def create_hashes(peaks, song_id: int = None, sr: int = None, fanout=10):
+def create_hashes(peaks, song_id: int = None, sr: int = None, fanout_t=10, fanout_f=1000):
     """
     fanout:
         specify the fan-out factor used for determining the target zone
@@ -335,10 +336,14 @@ def create_hashes(peaks, song_id: int = None, sr: int = None, fanout=10):
             # select targets from a zone in front of the anchor point
             target = peaks[j]
             time_diff = target[0] - anchor[0]
-            # TODO: use freq diff as well
+            freq_diff = target[1] - anchor[1]
+
+            # determine if peak is within target zone
             if time_diff <= 1:
                 continue
-            if time_diff > fanout:
+            if np.abs(freq_diff) >= fanout_f:
+                continue
+            if time_diff > fanout_t:
                 # constellation points are sorted by time
                 # => no need to check more potential targets
                 break
@@ -346,7 +351,7 @@ def create_hashes(peaks, song_id: int = None, sr: int = None, fanout=10):
             address = create_address(anchor, target, sr)
             anchorT = anchor[0]
 
-            fingerprints[address] = (anchorT, song_id)
+            fingerprints[address] = (int(anchorT), song_id)
             
     return fingerprints
 
@@ -391,14 +396,23 @@ def compute_source_hashes(song_ids: list[int] = None):
         audio_path = song["audio_path"]
 
         audio, sr = preprocess_audio(audio_path)
-        constellation = find_peaks(audio, sr)
-        hashes = create_hashes(constellation, song_id, sr)
+        constellation_map = create_constellation_map(audio, sr)
+        hashes = create_hashes(constellation_map, song_id, sr)
         add_hashes(hashes)
     
     create_hash_index()
 
 
-def score_hashes(hashes: dict[int, tuple[int, int]]) -> list[tuple[int, int]]:
+def score_hashes(hashes: dict[int, tuple[int, int]]) -> tuple[list[tuple[int, int]], dict[int, set[int, int]]]:
+    """
+    returns two values:
+
+    ```
+    result[0]: [(top_song_id, top_song_score), (2nd_song_id, 2nd_song_score, ...)]  # sorted
+    result[1]: {song_id_1: {(sourceT, sampleT), (sourceT, sampleT), ...}, ...}
+    ```
+    
+    """
     con, cur = connect_to_db()
 
     # 2.3: Searching and Scoring
@@ -417,6 +431,8 @@ def score_hashes(hashes: dict[int, tuple[int, int]]) -> list[tuple[int, int]]:
     for address, (sampleT, _) in hashes.items():
         matching_hashes = retrieve_hashes(address, cur)
         if matching_hashes is not None:
+            #print(matching_hashes)
+            #exit(0)
             for _, sourceT, song_id in matching_hashes:
                 time_pair_bins[song_id].add((sourceT, sampleT))
             
@@ -438,7 +454,7 @@ def score_hashes(hashes: dict[int, tuple[int, int]]) -> list[tuple[int, int]]:
     # of hashes in one file should also occur in the matching file with
     # the same relative time sequence.
 
-    # The problem of deciding wheter a match has been found reduces to
+    # The problem of deciding whether a match has been found reduces to
     # detecting a significant cluster of points forming a diagonal line
     # within the scatterplot.
 
@@ -458,51 +474,21 @@ def score_hashes(hashes: dict[int, tuple[int, int]]) -> list[tuple[int, int]]:
 
         # Then we calculate a histogram of these deltaT values
         # and scan for a peak.
-        hist, bin_edges = np.histogram(deltaT_values, bins=max(deltaT_values) - min(deltaT_values))
+        hist = defaultdict(lambda: 0)
+        for dT in deltaT_values:
+            hist[dT] += 1
+        #hist, bin_edges = np.histogram(deltaT_values, bins=len(np.unique(deltaT_values)))
 
         # The score of the match is the number of matching points
         # in the histogram peak
-        scores[song_id] = hist.max()
+        #scores[song_id] = hist.max()
+        scores[song_id] = max(hist.values()) if hist else 0
 
+    scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    con.close()
     return scores, time_pair_bins
 
-def visualize_scoring(scores: dict[int, int], time_pair_bins: dict[int, set[tuple[int, int]]]) -> None:
-    #plt.bar(bin_edges[:-1], counts, width=np.diff(bin_edges), edgecolor='black', align='edge')
-    #plt.xlabel('Offset t')
-    #plt.ylabel('Frequency')
-    #plt.title('Histogram')
-    #plt.show()
-    pass
 
-
-#def score_hashes(hashes: dict[int, tuple[int, int]]) -> list[tuple[int, int]]:
-    ## TODO: refactor and comment
-    #con, cur = connect_to_db()
-    #matches_per_song = defaultdict(list)
-    #for address, (sampleT, _) in hashes.items():
-        #matching_hashes = retrieve_hashes(address, cur)
-        #if matching_hashes is not None:
-            #for _, sourceT, song_id in matching_hashes:
-                #matches_per_song[song_id].append((address, sampleT, sourceT))
-                
-    ## time coherience score
-    #scores = {}
-    #for song_id, matches in matches_per_song.items():
-        #song_scores_by_offset = defaultdict(int)
-        #for address, sampleT, sourceT in matches:
-            #deltaT = sourceT - sampleT
-            #song_scores_by_offset[deltaT] += 1
-
-        #max_score = (0, 0)
-        #for offset, score in song_scores_by_offset.items():
-            #if score > max_score[1]:
-                #max_score = (offset, score)
-        #scores[song_id] = max_score
-    
-    #scores = list(sorted(scores.items(), key=lambda x: x[1][1], reverse=True)) 
-    
-    #con.close()
-    #return scores
 
 def init_db(tracks_dir: str = None, n_songs: int = None):
     """
@@ -517,7 +503,7 @@ def init_db(tracks_dir: str = None, n_songs: int = None):
     add_songs(tracks_dir, n_songs)
     compute_source_hashes()
 
-def recognize_music(sample_wav_path: str) -> list[tuple[int, int]]:
+def recognize_music(sample_wav_path: str, remove_sample: bool = True) -> list[tuple[int, int]]:
     """
     returns sorted list of `(song_id, score)` tuples
     
@@ -532,8 +518,39 @@ def recognize_music(sample_wav_path: str) -> list[tuple[int, int]]:
     song_id = recognize_music(sample_wav_path)[0][0]
     """
     sample, sr = preprocess_audio(sample_wav_path)
-    os.remove(sample_wav_path)
-    constellation = find_peaks(sample, sr)
-    hashes = create_hashes(constellation, None, sr)
-    scores, _ = score_hashes(hashes)
-    return scores
+    if remove_sample:
+        os.remove(sample_wav_path)
+    constellation_map = create_constellation_map(sample, sr)
+    hashes = create_hashes(constellation_map, None, sr)
+    scores, time_pair_bins = score_hashes(hashes)
+    return scores, time_pair_bins
+
+def visualize_scoring(sample_wav_path: str) -> None:
+    scores, time_pair_bins = recognize_music(sample_wav_path, remove_sample=False)
+    song_ids = [score[0] for score in scores[:5]]
+    if 20 not in song_ids:
+        song_ids.append(20)
+    for song_id in song_ids:
+        time_pair_bin = time_pair_bins[song_id]
+        song = retrieve_song(song_id)
+        deltaT_values = [sourceT - sampleT for (sourceT, sampleT) in time_pair_bin]
+        hist, bin_edges = np.histogram(deltaT_values, bins=len(np.unique(deltaT_values)))
+        fig, axes = plt.subplots(2, 1, figsize=(8, 10))
+        fig.suptitle(f"{song['title']} by {song['artist']}", fontsize=16)
+
+        # scatterplot
+        sourceT_vals = [pair[0] for pair in time_pair_bin]
+        sampleT_vals = [pair[1] for pair in time_pair_bin]
+        axes[0].scatter(sourceT_vals, sampleT_vals, alpha=0.7)
+        axes[0].set_xlabel('Source Time')
+        axes[0].set_ylabel('Sample Time')
+        axes[0].set_title('Scatterplot of matching hash locations')
+
+        # histogram
+        axes[1].bar(bin_edges[:-1], hist, width=np.diff(bin_edges), edgecolor='black', align='edge')
+        axes[1].set_xlabel('Offset t')
+        axes[1].set_ylabel('Frequency')
+        axes[1].set_title('Histogram of differences of time offsets')
+
+        plt.tight_layout()
+        plt.show()

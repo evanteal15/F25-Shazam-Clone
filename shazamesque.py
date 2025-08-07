@@ -1,6 +1,6 @@
 import pyaudio
 import wave
-from hasher import init_db, recognize_music, visualize_map_interactive
+from hasher import init_db, recognize_music, visualize_map_interactive, visualize_scoring
 from DBcontrol import retrieve_song
 import argparse
 
@@ -31,7 +31,7 @@ def display_result(song_id: int):
 def display_scores(scores):
     for song_id, score in scores[:5]:
         song_name = retrieve_song(song_id)["title"]
-        print(f"{song_name}: Score of {score[1]}")
+        print(f"{song_name}: Score of {score}")
 
 def record_audio(n_seconds: int = 5) -> str:
     """
@@ -65,13 +65,14 @@ def record_audio(n_seconds: int = 5) -> str:
 
     return outfile
 
+
 def shazamesque():
         input("🔊 Tap (Enter) to Shazamesque\n")
         print("🎤 Listening for music", end="\r")
         sample_wav_path = record_audio()
         print("🔎 Searching for a match", end="\r")
-        scores = recognize_music(sample_wav_path)
-        song_id = max(scores, key=scores.get)
+        scores, _ = recognize_music(sample_wav_path)
+        song_id = scores[0][0]
         display_result(song_id)
         display_scores(scores)
 
@@ -79,15 +80,21 @@ def main():
     parser = argparse.ArgumentParser(description="Music recognition CLI")
     parser.add_argument('--init', action='store_true', help='Initialize the database and exit')
     parser.add_argument('--recognize', action='store_true', help='Run the Shazamesque Algorithm on repeat')
-    parser.add_argument('--visualize', action='store_true', help='Visualize constellation map overlaid on spectrogram')
+    parser.add_argument('--constellation', action='store_true', help='Visualize constellation map overlaid on spectrogram')
+    parser.add_argument('--scoring', action='store_true', help='Visualize the score for top five closest matches')
     args = parser.parse_args()
 
     if args.init:
         init_db(tracks_dir="tracks-2025-07-22")
         print("Database initialized with songs and hashes.")
         return
-    elif args.visualize:
+    elif args.constellation:
         visualize_map_interactive("sacrifice.mp3")
+        #visualize_map_interactive("sacrifice_sample.wav")
+        return
+    elif args.scoring:
+        visualize_scoring("sacrifice_copy.wav")
+        #visualize_scoring("sacrifice_sample.wav")
         return
     elif args.recognize:
         print("Ctrl+C to exit")
