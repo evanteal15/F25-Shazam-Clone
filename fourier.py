@@ -127,11 +127,10 @@ def manual_stft(audio, sr):
         # normalize the result by the sampling rate
         fft_result /= (sr)
         
-        # stft_matrix[:, i] = fft_result[:freq_bins]
-        
-        # apply
+        # apply Nyquist function
         stft_matrix[0, i] = fft_result[0]
-        stft_matrix[1:-1, i] = fft_result[1:nperseg//2]  * 2
+        stft_matrix[1:-1, i] = fft_result[1:nperseg//2] * 2  # Scale others by 2
+        stft_matrix[-1, i] = fft_result[nperseg//2]
         
     # get each frequency bin
     frequencies = np.linspace(0, sr / 2, freq_bins)
