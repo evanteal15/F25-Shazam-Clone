@@ -49,11 +49,7 @@ def manual_fft(audio, sr):
     """
     N = len(audio)
     
-    # Base Case
-    if N <= 1:
-        return np.array(audio)
-    
-    # After a sufficient number of splits, use dft
+    # Base case: After a sufficient number of splits, use dft
     if N <= 32:
         return manual_dft(audio, sr)
     
@@ -97,7 +93,7 @@ def manual_stft(audio, sr):
     
     # window_norm = np.sqrt(np.sum(windower**2))
     
-    # get the total size of our 
+    # get the total size of our padded audio
     sl = len(ap)
     
     # number of complete windows we can fit
