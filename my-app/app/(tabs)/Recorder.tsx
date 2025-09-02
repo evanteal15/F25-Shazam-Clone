@@ -16,15 +16,16 @@ import {
   Text,
   TouchableOpacity,
   View,
-  Modal,
   Alert,
   Platform,
 } from "react-native";
+import { WebView } from "react-native-webview";
 import { setStatusBarNetworkActivityIndicatorVisible } from "expo-status-bar";
 
 export default function Recorder() {
   const [audioInput, setAudioInput] = useState("device");
   const [uri, setUri] = useState<any>(null);
+  const [text, setText] = React.useState("");
   const audioRecorder = useAudioRecorder({
     extension: ".m4a",
     numberOfChannels: 2,
@@ -50,6 +51,10 @@ export default function Recorder() {
   });
   const recorderState = useAudioRecorderState(audioRecorder);
   const [predictedSong, setPredictedSong] = useState<string | null>(null);
+  const [predictedConfidence, setPredictedConfidence] = useState<number | null>(
+    null
+  );
+  const [predictedUrl, setPredictedUrl] = useState<string | null>(null);
   const [showPrediction, setShowPrediction] = useState(false);
   // const audioPlayer = useAudioPlayer();
   // const [audioPlayer, setAudioPlayer] = useState(null);
@@ -92,24 +97,6 @@ export default function Recorder() {
 
       const formData = new FormData();
 
-      // let typet: string;
-      // if (Platform.OS === "ios") {
-      //   typet = "audio/m4a";
-      // } else if (Platform.OS === "android") {
-      //   typet = "audio/caf";
-      // } else {
-      //   throw Error("Unsupported file type");
-      // }
-
-      // const audioData = {
-      //   uri: uri,
-      //   type: "audio/m4a",
-      //   name: "audio/m4a",
-      // };
-      // console.log("Image data being sent:", audioData);
-
-      // formData.append("audio", audioData as any);
-
       const responsee = await fetch(uri);
       const blob = await responsee.blob();
 
@@ -141,18 +128,35 @@ export default function Recorder() {
 
       // setPredictedSong(data.song);
       // return predictedSong;
-      return file;
+      return response;
     } catch (error) {
       console.error("Error in getPredictedSong:", error);
       return null;
     }
   }
 
+  async function addSongToDatabase(song_url: any) {
+    try {
+      await fetch("http://172.30.123.55:5003/add", {
+        method: "POST",
+        body: JSON.stringify({ youtube_url: song_url }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    } catch (error) {
+      console.error("Error adding song to database:", error);
+    }
+  }
+
   const handlePrediction = async () => {
     if (uri) {
-      const song = await getPredictedSong();
-      if (song) {
-        setPredictedSong(song.name);
+      const response = await getPredictedSong();
+      if (response) {
+        const data = await response.json();
+        setPredictedSong(data.best);
+        setPredictedConfidence(data.confidence);
+        setPredictedUrl(data.urls);
         setShowPrediction(true);
       }
     }
@@ -201,8 +205,32 @@ export default function Recorder() {
       {showPrediction && uri && (
         <View style={styles.container}>
           <Text>Predicted Song: {predictedSong}</Text>
+          <Text>Predicted Confidence: {predictedConfidence}</Text>
+          <Text>Predicted URL: {predictedUrl}</Text>
+          {/* <WebView
+            style={{ flex: 1 }}
+            javaScriptEnabled={true}
+            source={{
+              uri: "",
+            }}
+          /> */}
         </View>
       )}
+
+      <form
+        data-testid="comment-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          addSongToDatabase(text);
+          setText("");
+        }}
+      >
+        <input
+          type="text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+      </form>
     </>
   );
 }

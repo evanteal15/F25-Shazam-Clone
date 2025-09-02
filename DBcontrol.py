@@ -65,6 +65,9 @@ def find_tracks_dir(tracks_dir: str = None):
 
 
 def add_songs(tracks_dir: str = None, n_songs: int = None, specific_songs: list[str] = None) -> None:
+    if n_songs == 0:
+        return
+    
     tracks_dir = find_tracks_dir(tracks_dir)
         
     df = pd.read_csv(os.path.join(tracks_dir, "tracks.csv"))
@@ -82,7 +85,7 @@ def add_songs(tracks_dir: str = None, n_songs: int = None, specific_songs: list[
 
 def retrieve_song(song_id) -> dict|None:
     with sqlite3.connect(library) as con:
-        df = pd.read_sql_query("SELECT * FROM songs WHERE id = ?", con, params=(song_id,))
+        df = pd.read_sql_query("SELECT * FROM songsdemo WHERE id = ?", con, params=(song_id,))
         if df.empty:
             return None
         row = df.iloc[0].to_dict()

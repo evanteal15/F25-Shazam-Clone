@@ -441,9 +441,10 @@ def compute_source_hashes(song_ids: list[int] = None):
     for song_id in song_ids:
         print(f"{song_id:03} ================================================")
         song = retrieve_song(song_id)
-        print(f"{song['title']} by {song['artist']}")
+        # print(f"{song['title']} by {song['artist']}")
         #duration_s = song["duration_s"]
         audio_path = song["audio_path"]
+        print(audio_path)
 
         audio, sr = preprocess_audio(audio_path)
         constellation_map = create_constellation_map(audio, sr)
@@ -451,7 +452,6 @@ def compute_source_hashes(song_ids: list[int] = None):
         add_hashes(hashes)
     
     create_hash_index()
-
 
 def score_hashes(hashes: dict[int, tuple[int, int]]) -> tuple[list[tuple[int, int]], dict[int, set[int, int]]]:
     """
@@ -540,7 +540,7 @@ def score_hashes(hashes: dict[int, tuple[int, int]]) -> tuple[list[tuple[int, in
 
 
 
-def init_db(tracks_dir: str = None, n_songs: int = None, specific_songs: list[str] = None):
+def init_db(tracks_dir: str = None, n_songs: int = 0, specific_songs: list[str] = None):
     """
     tracks_dir:
         Path to the mp3 dataset downloaded by `musicdl`. 

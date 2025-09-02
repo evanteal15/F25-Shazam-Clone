@@ -11,6 +11,12 @@ CREATE TABLE songs(
     audio_path TEXT NOT NULL
 );
 
+CREATE TABLE songsdemo(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    youtube_url TEXT UNIQUE,
+    audio_path TEXT NOT NULL
+);
+
 CREATE TABLE hashes(
     hash_val INTEGER NOT NULL,
     time_stamp INTEGER NOT NULL,
