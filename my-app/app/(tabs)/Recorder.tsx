@@ -15,10 +15,12 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  TextInput,
   View,
   Alert,
   Platform,
 } from "react-native";
+import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import { setStatusBarNetworkActivityIndicatorVisible } from "expo-status-bar";
 
@@ -108,23 +110,21 @@ export default function Recorder() {
       formData.append("audio", file);
 
       console.log("Sending POST request to server...");
-      const response = await fetch("http://172.30.123.55:5003/predict", {
+      // const response = await fetch("http://172.30.123.55:5003/predict", {
+      //   method: "POST",
+      //   body: formData,
+      //   // headers: {
+      //   //   "Content-Type": "multipart/form-data",
+      //   // },
+      // });
+
+      const response = await fetch("http://192.168.1.170:5003/predict", {
         method: "POST",
         body: formData,
         // headers: {
         //   "Content-Type": "multipart/form-data",
         // },
       });
-
-      // console.log("Response status:", response.status);
-      // const responseText = await response.text();
-      // console.log("Raw response:", responseText);
-
-      // const data = JSON.parse(responseText);
-      // if (!data.song) {
-      //   console.error("No song data in response:", data);
-      //   return null;
-      // }
 
       // setPredictedSong(data.song);
       // return predictedSong;
@@ -137,7 +137,15 @@ export default function Recorder() {
 
   async function addSongToDatabase(song_url: any) {
     try {
-      await fetch("http://172.30.123.55:5003/add", {
+      console.log("Adding song to database:", song_url);
+      // await fetch("http://172.30.123.55:5003/add", {
+      //   method: "POST",
+      //   body: JSON.stringify({ youtube_url: song_url }),
+      //   headers: {
+      //     "Content-Type": "application/json",
+      //   },
+      // });
+      await fetch("http://192.168.1.170:5003/add", {
         method: "POST",
         body: JSON.stringify({ youtube_url: song_url }),
         headers: {
@@ -164,73 +172,95 @@ export default function Recorder() {
 
   return (
     <>
-      <View style={styles.container}>
-        <Button
-          title={
-            recorderState.isRecording ? "Stop Recording" : "Start Recording"
-          }
-          onPress={recorderState.isRecording ? stopRecording : record}
-        />
-      </View>
-      <View style={styles.container}>
-        <Button
-          title="Play Recording"
-          onPress={async () => {
-            // console.log("Loading sound..");
-            const { sound } = await Audio.Sound.createAsync(
-              { uri: uri },
-              { shouldPlay: true }
-            );
+      <SafeAreaProvider>
+        <SafeAreaView>
+          <View style={styles.container}>
+            <Button
+              title={
+                recorderState.isRecording ? "Stop Recording" : "Start Recording"
+              }
+              onPress={recorderState.isRecording ? stopRecording : record}
+            />
+          </View>
+          <View style={styles.container}>
+            <Button
+              title="Play Recording"
+              onPress={async () => {
+                // console.log("Loading sound..");
+                const { sound } = await Audio.Sound.createAsync(
+                  { uri: uri },
+                  { shouldPlay: true }
+                );
 
-            // sound.setOnPlaybackStatusUpdate((status) => {
-            //   setIsPlaying(status.isPlaying);
+                // sound.setOnPlaybackStatusUpdate((status) => {
+                //   setIsPlaying(status.isPlaying);
 
-            //   if (status.didJustFinish) {
-            //     setIsPlaying(false); // Reset playing status when finished
-            //   }
-            // });
+                //   if (status.didJustFinish) {
+                //     setIsPlaying(false); // Reset playing status when finished
+                //   }
+                // });
 
-            // console.log("Playing sound..");
-            await sound.playAsync();
+                // console.log("Playing sound..");
+                await sound.playAsync();
 
-            // soundRef.current = sound;
-          }}
-        />
-      </View>
-      <View style={styles.container}>
-        <TouchableOpacity onPress={handlePrediction}>
-          <Text>Predict Song</Text>
-        </TouchableOpacity>
-      </View>
-      {showPrediction && uri && (
-        <View style={styles.container}>
-          <Text>Predicted Song: {predictedSong}</Text>
-          <Text>Predicted Confidence: {predictedConfidence}</Text>
-          <Text>Predicted URL: {predictedUrl}</Text>
-          {/* <WebView
+                // soundRef.current = sound;
+              }}
+            />
+          </View>
+          <View style={styles.container}>
+            <TouchableOpacity onPress={handlePrediction}>
+              <Text>Predict Song</Text>
+            </TouchableOpacity>
+          </View>
+          {showPrediction && uri && (
+            <View style={styles.container}>
+              <Text>Predicted Song: {predictedSong}</Text>
+              <Text>Predicted Confidence: {predictedConfidence}</Text>
+              <Text>Predicted URL: {predictedUrl}</Text>
+              {/* <WebView
             style={{ flex: 1 }}
             javaScriptEnabled={true}
             source={{
               uri: "",
             }}
           /> */}
-        </View>
-      )}
+            </View>
+          )}
 
-      <form
-        data-testid="comment-form"
+          {/* <form
         onSubmit={(e) => {
           e.preventDefault();
           addSongToDatabase(text);
           setText("");
         }}
       >
-        <input
-          type="text"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-        />
-      </form>
+        <TextInput value={text} onChangeText={(value) => setText(value)} />
+      </form> */}
+          <View style={styles.container}>
+            <TextInput
+              value={text}
+              onChangeText={setText}
+              placeholder="Type your song..."
+              // style={styles.input}
+              // Optionally submit on return key:
+              onSubmitEditing={(e) => {
+                e.preventDefault();
+                addSongToDatabase(text);
+                setText("");
+              }}
+              returnKeyType="done"
+            />
+            <Button
+              title="Add Song"
+              onPress={(e) => {
+                e.preventDefault();
+                addSongToDatabase(text);
+                setText("");
+              }}
+            />
+          </View>
+        </SafeAreaView>
+      </SafeAreaProvider>
     </>
   );
 }
