@@ -39,3 +39,10 @@ This project will combine elements of Machine Learning, Signal Analysis, App Dev
 Run it yourself!
 
 Download requirements from requirements.txt
+
+If you are using wsl:
+Run this command in WSL terminal replacing YOU_WSL2_IP with the IP address of your endpoint
+netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=5003 connectaddress=YOUR_WSL2_IP connectport=5003
+Also add a windows defender firewall rule at the selected port
+netsh advfirewall firewall add rule name="WSL2 5003" dir=in action=allow protocol=TCP localport=5003
+You can now interact with the app backend if it is in a wsl virtual environment!
