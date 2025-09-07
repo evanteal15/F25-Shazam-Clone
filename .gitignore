@@ -10,6 +10,6 @@ paper.pdf
 
 # files associated with music download script
 musicdl
-.env
+.musicdl_env
 tracks*
 plots_gitig

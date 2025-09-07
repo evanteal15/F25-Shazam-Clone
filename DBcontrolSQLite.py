@@ -1,74 +1,47 @@
 import os
 
-import mysql.connector
+import sqlite3
 import librosa
 import glob
 import pandas as pd
 import zipfile
 
-db_name = "shazamesque"
+library = "sql/library.db"
 
-def connect(): #-> tuple[sqlite3.Connection, sqlite3.Cursor]:
-    #con = sqlite3.connect(library)
-    con = mysql.connector.connect(
-        host="localhost",
-        user="root",
-        database=db_name,
-        password="password"
-    )
-
+def connect_to_db() -> tuple[sqlite3.Connection]:
+    con = sqlite3.connect(library)
     return con
 
 def create_hash_index():
-    with connect() as con:
+    with sqlite3.connect(library) as con:
         cur = con.cursor()
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_hash_val ON hashes(hash_val) USING HASH;")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_hash_val ON hashes(hash_val)")
         con.commit()
 
-def add_song(track_data: dict) -> str:
-    """
-    track_data = {
-        "youtube_url": https://youtube.com/watch?v=video_id
-        "title": name of track, or youtube video title
-        "artist": name of artist, or youtube video author
-        "artwork_url": url to spotify album art, or youtube thumbnail
-        "audio_path": local path to mp3 file
-    }
-
-    returns corresponding song id via SELECT last_insert_rowid();
-    """
-
-    #https://img.youtube.com/vi/_r-nPqWGG6c/0.jpg
-
-
-    with connect() as con:
+def add_song(track_data: dict) -> None:
+    with sqlite3.connect(library) as con:
         cur = con.cursor()
 
-        youtube_url = track_data["youtube_url"]
         audio_path = track_data["audio_path"]
-        with open(audio_path, 'rb') as f:
-            waveform = f.read()
         duration_s = librosa.get_duration(path=audio_path)
-
 
         cur.execute("""
             INSERT INTO songs 
-                    (youtube_url, title, artist, artwork_url, waveform, duration_s)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    (title, artist, album, artwork_url, spotify_url, youtube_url, release_date, duration_s, audio_path)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                youtube_url,
-                track_data["title"],
-                track_data["artist"],
-                track_data["artwork_url"],
-                waveform,
+                track_data["track_name"],
+                track_data["artist_name"],
+                track_data["album_name"],
+                track_data["image_url"],
+                f"https://open.spotify.com/track/{track_data['track_id']}",
+                f"https://www.youtube.com/watch?v={track_data['video_id']}",
+                track_data["release_date"],
                 duration_s,
+                audio_path
             )
         )
         con.commit()
-        cur.execute("SELECT last_insert_rowid()")
-        song_id = cur.fetchone()[0]
-        return song_id
-
 
 
 def find_tracks_dir(tracks_dir: str = None):
@@ -104,13 +77,13 @@ def add_songs(tracks_dir: str = None, n_songs: int = None, specific_songs: list[
 
     for row in df.to_dict(orient="records"):
         if specific_songs is not None: 
-            if row["title"] in specific_songs:
+            if row["track_name"] in specific_songs:
                 add_song(row)
         else:
             add_song(row)
 
 def retrieve_song(song_id) -> dict|None:
-    with connect as con:
+    with sqlite3.connect(library) as con:
         df = pd.read_sql_query("SELECT * FROM songsdemo WHERE id = ?", con, params=(song_id,))
         if df.empty:
             return None
@@ -118,40 +91,35 @@ def retrieve_song(song_id) -> dict|None:
         return row
     
 def retrieve_song_ids() -> list[int]:
-    with connect as con:
+    with sqlite3.connect(library) as con:
         cur = con.cursor()
         cur.execute("SELECT id FROM songs ORDER BY id ASC")
         ids = [row[0] for row in cur.fetchall()]
     return ids
       
-def add_hash(hash_val: int, time_stamp: float, song_id: int, cur: "mysqlcursor") -> None:
+def add_hash(hash_val: int, time_stamp: float, song_id: int, cur: sqlite3.Cursor) -> None:
     cur.execute("""INSERT INTO hashes 
                     (hash_val, time_stamp, song_id) 
                     VALUES (?, ?, ?)""", 
                     (hash_val, time_stamp, song_id))
     
 def add_hashes(hashes: dict[int, tuple[int, int]]):
-    with connect() as con:
+    with sqlite3.connect(library) as con:
         cur = con.cursor()
         for address, (anchorT, song_id) in hashes.items():
             add_hash(address, anchorT, song_id, cur)
         con.commit()
 
-def retrieve_hashes(hash_val: int, cursor) -> tuple[int, int, int]|None:
-    result = cursor.execute("SELECT hash_val, time_stamp, song_id FROM hashes WHERE hash_val = ?", (hash_val,)).fetchall()
+def retrieve_hashes(hash_val: int, cur: sqlite3.Cursor) -> tuple[int, int, int]|None:
+    result = cur.execute("SELECT hash_val, time_stamp, song_id FROM hashes WHERE hash_val = ?", (hash_val,)).fetchall()
     return result if result else None
 
 def create_tables():
-    con = mysql.connector.connect(
-        host="localhost",
-        user="root",
-    )
-    cur = con.cursor()
-    cur.execute(f"CREATE DATABASE {db_name}")
-    cur = con.cursor()
-    with open("sql/schema.sql", "r") as f:
-        schema_sql = f.read()
-    cur.executescript(schema_sql)
-    con.commit()
-    con.close()
-
+    if os.path.exists(library):
+        os.remove(library)
+    with sqlite3.connect(library) as con:
+        cur = con.cursor()
+        with open("sql/schema_sqlite.sql", "r") as f:
+            schema_sql = f.read()
+        cur.executescript(schema_sql)
+        con.commit()

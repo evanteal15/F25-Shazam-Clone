@@ -1,20 +1,11 @@
 CREATE TABLE songs(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    youtube_url TEXT UNIQUE NOT NULL,
     title TEXT NOT NULL,
-    artist TEXT,
-    album TEXT,
-    artwork_url TEXT,
-    spotify_url TEXT UNIQUE,
-    youtube_url TEXT UNIQUE,
-    release_date TEXT,
-    duration_s FLOAT NOT NULL,
-    audio_path TEXT NOT NULL
-);
-
-CREATE TABLE songsdemo(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    youtube_url TEXT UNIQUE,
-    audio_path TEXT NOT NULL
+    artist TEXT NOT NULL,
+    artwork_url TEXT NOT NULL,
+    waveform MEDIUMBLOB NOT NULL,
+    duration_s FLOAT NOT NULL
 );
 
 CREATE TABLE hashes(

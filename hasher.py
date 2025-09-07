@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
 
-from DBcontrol import connect_to_db, retrieve_song, \
+from DBcontrolSQLite import connect_to_db, retrieve_song, \
     retrieve_song_ids, retrieve_hashes, add_hashes, \
     create_hash_index, create_tables, add_songs
 
@@ -408,6 +408,14 @@ def create_hashes(peaks, song_id: int = None, sr: int = None, fanout_t=100, fano
 def preprocess_audio(audio_path, sr = 11_025):
     """
     returns `(audio, sr)`
+
+    11025 Hz
+    44100 Hz
+
+    Note: using mp3 prevents reading file blob directly
+          using BytesIO stream, we have to save it to a
+          temp file first (audio_path = BytesIO(...wavfile...)
+          does work though)
     """
     # resample to 11 kHz (11,025 Hz)
     # TODO: analyze optimal resampling rate
@@ -443,13 +451,18 @@ def compute_source_hashes(song_ids: list[int] = None):
         song = retrieve_song(song_id)
         # print(f"{song['title']} by {song['artist']}")
         #duration_s = song["duration_s"]
-        audio_path = song["audio_path"]
-        print(audio_path)
+        #audio_path = song["audio_path"]
+        waveform = song["waveform"]
+        audio_path = "temp_audio.mp3"
+        with open(audio_path, 'wb') as f:
+            f.write(waveform)
+        #print(audio_path)
 
         audio, sr = preprocess_audio(audio_path)
         constellation_map = create_constellation_map(audio, sr)
         hashes = create_hashes(constellation_map, song_id, sr)
         add_hashes(hashes)
+        os.remove(audio_path)
     
     create_hash_index()
 
@@ -463,7 +476,8 @@ def score_hashes(hashes: dict[int, tuple[int, int]]) -> tuple[list[tuple[int, in
     ```
     
     """
-    con, cur = connect_to_db()
+    con = connect_to_db()
+    cur = con.cursor()
 
     # 2.3: Searching and Scoring
     
@@ -543,7 +557,7 @@ def score_hashes(hashes: dict[int, tuple[int, int]]) -> tuple[list[tuple[int, in
 def init_db(tracks_dir: str = None, n_songs: int = 0, specific_songs: list[str] = None):
     """
     tracks_dir:
-        Path to the mp3 dataset downloaded by `musicdl`. 
+        Path to the audio dataset downloaded by `musicdl`. 
         Default is to look for a folder or zip archive matching the pattern "`tracks*`"
     n_songs:
         Take a sample from the top of the tracks dataset. Default is to read all songs

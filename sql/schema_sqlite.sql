@@ -1,0 +1,25 @@
+CREATE TABLE songs(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    artist TEXT,
+    album TEXT,
+    artwork_url TEXT,
+    spotify_url TEXT UNIQUE,
+    youtube_url TEXT UNIQUE,
+    release_date TEXT,
+    duration_s FLOAT NOT NULL,
+    audio_path TEXT NOT NULL
+);
+
+CREATE TABLE songsdemo(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    youtube_url TEXT UNIQUE,
+    audio_path TEXT NOT NULL
+);
+
+CREATE TABLE hashes(
+    hash_val INTEGER NOT NULL,
+    time_stamp INTEGER NOT NULL,
+    song_id INTEGER NOT NULL,
+    FOREIGN KEY (song_id) REFERENCES songs(id)
+);

@@ -1,7 +1,7 @@
 import pyaudio
 import wave
 from hasher import init_db, recognize_music, visualize_map_interactive, visualize_scoring
-from DBcontrol import retrieve_song
+from DBcontrolSQLite import retrieve_song
 import argparse
 
 def display_result(song_id: int):

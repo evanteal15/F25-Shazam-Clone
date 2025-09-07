@@ -1,8 +1,9 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import numpy as np
-from hasher import recognize_music, compute_source_hashes, init_db
-from DBcontrol import retrieve_song
+from hasher import preprocess_audio, recognize_music, compute_source_hashes, init_db
+import DBcontrol as db
+
 import scipy.io.wavfile as wavfile
 import tempfile
 import os
@@ -13,12 +14,26 @@ import yt_dlp
 import sqlite3
 from pytube import YouTube
 import ffmpeg
+import requests
 
 app = Flask(__name__)
 CORS(app)
 
 library = "sql/library.db"
 idx = 0
+
+
+def get_yt_metadata(youtube_url: str, audio_path: str) -> dict:
+    track_data = {}
+    url = f"https://www.youtube.com/oembed?format=json&url={youtube_url}"
+    response = requests.get(url)
+    json_data = response.json()
+    track_data["youtube_url"] = youtube_url
+    track_data["title"] = json_data["title"]
+    track_data["artist"] = json_data["author_name"]
+    track_data["artwork_url"] = json_data["thumbnail_url"]
+    track_data["audio_path"] = audio_path
+    return track_data
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -35,35 +50,32 @@ def predict():
         temp_webm_path = temp_webm.name
     
     # Convert to WAV using FFmpeg
-    temp_wav_path = temp_webm_path.replace('.webm', '.wav')
+    temp_audio_path = temp_webm_path.replace('.webm', '.wav')
     
     subprocess.run([
         'ffmpeg', '-i', temp_webm_path,
         '-ar', '44100',  # Sample rate
         '-ac', '1',      # Mono
         '-y',            # Overwrite
-        temp_wav_path
+        temp_audio_path
     ], check=True, capture_output=True)
     
-    
     # Use scipy to parse the WAV file properly
-    sample_rate, audio_array = wavfile.read(temp_wav_path)
-    
+    #sample_rate, audio_array = wavfile.read(temp_audio_path)
     # Convert to float32 and normalize
-    audio_array = audio_array.astype(np.float32) / (2**15)
-    
-    print(f"Audio loaded: {len(audio_array)} samples at {sample_rate}Hz")
+    #audio_array = audio_array.astype(np.float32) / (2**15)
+    #print(f"Audio loaded: {len(audio_array)} samples at {sample_rate}Hz")
     
      
-    if audio_file is None:
-        return jsonify({'error': 'Could not read the audio file'}), 400
+    #if audio_file is None:
+        #return jsonify({'error': 'Could not read the audio file'}), 400
     
     # TODO: Get the prediction
-    # audio_array, sample_rate = librosa.load(temp_wav_path, sr=44100)
+    # audio_array, sample_rate = librosa.load(temp_audio_path, sr=44100)
     
     # print(f"Audio loaded: {len(audio_array)} samples at {sample_rate}Hz")
     
-    scores, _ = recognize_music(temp_wav_path)
+    scores, _ = recognize_music(temp_audio_path)
 
     # top5 = scores[:5]
 
@@ -73,8 +85,9 @@ def predict():
     
     urls = []
     for id in scores:
-        urls.append(retrieve_song(id[0])["youtube_url"])
+        urls.append(db.retrieve_song(id[0])["youtube_url"])
 
+    os.remove("temp_audio_path")
     return jsonify({
         'best': scores[0][0],
         'confidence': float(scores[0][1]),
@@ -83,6 +96,11 @@ def predict():
     
 @app.route('/add', methods=['POST'])
 def add_song():
+    #file_format = "mp3"
+    file_format = "mp3"
+
+
+
     song_data = request.json
     if not song_data:
         return jsonify({'error': 'Could not read the audio file'}), 400
@@ -92,10 +110,10 @@ def add_song():
     
     youtube_url = song_data.get('youtube_url')
     
-    con = sqlite3.connect(library)
+    con = db.connect()
     cur = con.cursor()
 
-    if cur.execute("SELECT COUNT(*) FROM songsdemo WHERE youtube_url = ?", (youtube_url,)).fetchone()[0] != 0:
+    if cur.execute("SELECT COUNT(*) FROM songs WHERE youtube_url = ?", (youtube_url,)).fetchone()[0] != 0:
         print("Song already exists in database")
         return jsonify({'error': 'Song already exists in database'}), 400
     
@@ -106,16 +124,16 @@ def add_song():
         'outtmpl': f'output_{idx}.%(ext)s',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'wav',
+            'preferredcodec': file_format,
         }],
     }
     idx += 1
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        
         ydl.download([youtube_url])
+        audio_path = f'output_{idx-1}.{file_format}'
         stream = ffmpeg.input(f'output_{idx-1}.m4a')
-        stream = ffmpeg.output(stream, f'output_{idx-1}.wav')
+        stream = ffmpeg.output(stream, audio_path)
 
     # print(f"Attempting to fetch: {youtube_url}")
     
@@ -132,23 +150,10 @@ def add_song():
     # audio = AudioSegment.from_file(downloaded_file)
     # audio.export(wav_file, format="wav")
     
-    con = sqlite3.connect(library)
-    cur = con.cursor()
 
     print("Inserting song into database")
+    song_id = db.add_song(get_yt_metadata(youtube_url, audio_path))
 
-    cur.execute("""
-        INSERT INTO songsdemo (youtube_url, audio_path)
-        VALUES (?, ?)
-    """, (youtube_url, f'output_{idx-1}.wav'))
-    con.commit()
-    
-    
-    # TODO: add the wav file hashes to the database
-    # retrieve the id of the most recently added song
-    cur.execute("SELECT last_insert_rowid()")
-    song_id = cur.fetchone()[0]
-    print(f"Added song with ID: {song_id}")
     
     compute_source_hashes([song_id])
     
