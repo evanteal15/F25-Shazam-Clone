@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "react-native-youtube-iframe": "^2.4.1",
+    "react-youtube": "^10.1.0"
+  }
+}
