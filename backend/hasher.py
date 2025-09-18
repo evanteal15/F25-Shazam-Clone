@@ -354,7 +354,7 @@ def create_address(anchor: tuple[int, int], target: tuple[int, int], sr: int) ->
     # preprocess_audio() resamples to 11 kHz
     # => max frequency is sr/2 = 5512.5
     # (by the Nyquist–Shannon sampling theorem)
-    # use a value slightly higher than this (to avoid overflow I think?):
+    # use a value slightly higher than this
     max_frequency = np.ceil(sr / 2) + 10
 
     # transform frequencies to fit in 10 bits (0-1023)
@@ -429,7 +429,7 @@ def preprocess_audio(audio_path, sr = 11_025):
     #
     #       Fs == sr == sample_rate
     # uses a low pass filter to filter the higher frequencies to avoid aliasing (Nyquist-Shannon)
-    # then takes sequential samples of size 4 and computes average of each sample
+    # then takes sequential samples of size 4 and keeps the first of each ("decimates")
     audio, sr = librosa.load(audio_path, sr=sr)
 
     ## equivalent to:
