@@ -1,21 +1,38 @@
 import os
+from xmlrpc import server
 
 import mysql.connector
 import librosa
 import glob
 import pandas as pd
 import zipfile
+import pyodbc
+
+from dotenv import load_dotenv
+
+load_dotenv(dotenv_path='/home/evanteal15/F25-Shazam-Clone/env/.env')
 
 db_name = "shazamesque"
 
 def connect(): #-> tuple[sqlite3.Connection, sqlite3.Cursor]:
     #con = sqlite3.connect(library)
-    con = mysql.connector.connect(
-        host="localhost",
-        user="root",
-        database=db_name,
-        password="password"
-    )
+    
+    server = 'tcp:shazesq.database.windows.net,1433'
+    database = 'shazamesque'
+    username = os.getenv('USER_NAME')
+    password = os.getenv('THE_PASSWORD')
+    driver = '{ODBC Driver 18 for SQL Server}'
+
+    connection_string = f"DRIVER={driver};SERVER={server};DATABASE={database};UID={username};PWD={password};Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
+    # Driver={ODBC Driver 18 for SQL Server};Server=tcp:shazesq.database.windows.net,1433;Database=shazamesque;Uid=CloudSAce2ffd30;Pwd={your_password_here};Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;
+    
+    # con = mysql.connector.connect(
+    #     host="localhost",
+    #     user="root",
+    #     database=db_name,
+    #     password="password"
+    # )
+    con = pyodbc.connect(connection_string)
 
     return con
 
