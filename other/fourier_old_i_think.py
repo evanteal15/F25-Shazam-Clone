@@ -112,7 +112,10 @@ def manual_stft(audio, sr):
     stft_matrix = np.zeros((freq_bins, num_segs), dtype = complex)
     
     # STFT algorithm,
+    # for each segment of the audio file, window it and take the fft
     for i in range(num_segs):
+        
+        # calculate the start and end of this segment
         start = i * hop_length
         end = start + nperseg
         
