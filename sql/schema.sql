@@ -1,10 +1,10 @@
 CREATE TABLE songs(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    youtube_url TEXT UNIQUE NOT NULL,
+    id INTEGER PRIMARY KEY AUTO_INCREMENT,
+    youtube_url VARCHAR(64) UNIQUE NOT NULL,
     title TEXT NOT NULL,
     artist TEXT NOT NULL,
     artwork_url TEXT NOT NULL,
-    waveform MEDIUMBLOB NOT NULL,
+    audio_path TEXT NOT NULL,
     duration_s FLOAT NOT NULL
 );
 

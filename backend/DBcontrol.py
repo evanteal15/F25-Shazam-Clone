@@ -5,17 +5,24 @@ import mysql.connector
 import librosa
 import glob
 import pandas as pd
+import platform
 import zipfile
-import pyodbc
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv(dotenv_path='/home/evanteal15/F25-Shazam-Clone/env/.env')
 
 db_name = "shazamesque"
 
-def connect(): #-> tuple[sqlite3.Connection, sqlite3.Cursor]:
+def connect_win():
     #con = sqlite3.connect(library)
+
+    # might require extra setup to run on unix
+    #dlopen(/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/env/lib/python3.13/site-packages/pyodbc.cpython-313-darwin.so, 0x0002): Library not loaded: /usr/local/opt/unixodbc/lib/libodbc.2.dylib
+    #Referenced from: <198D80CE-60DE-3C50-AB31-D427749080B6> /Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/env/lib/python3.13/site-packages/pyodbc.cpython-313-darwin.so
+    #Reason: tried: '/usr/local/opt/unixodbc/lib/libodbc.2.dylib' (no such file), '/System/Volumes/Preboot/Cryptexes/OS/usr/local/opt/unixodbc/lib/libodbc.2.dylib' (no such file), '/usr/local/opt/unixodbc/lib/libodbc.2.dylib' (no such file), '/usr/local/lib/libodbc.2.dylib' (no such file), '/usr/lib/libodbc.2.dylib' (no such file, not in dyld cache)
+    import pyodbc
+    load_dotenv(dotenv_path='/home/evanteal15/F25-Shazam-Clone/env/.env')
     
     server = 'tcp:shazesq.database.windows.net,1433'
     database = 'shazamesque'
@@ -36,10 +43,30 @@ def connect(): #-> tuple[sqlite3.Connection, sqlite3.Cursor]:
 
     return con
 
+def connect_unix():
+    con = mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="",
+        database=db_name
+    )
+    return con
+
+
+system = platform.system()
+if system == "Darwin":
+    connect = connect_unix
+elif system == "Windows":
+    connect = connect_win
+else:
+    #elif system == "Linux":
+    connect = connect_win
+
 def create_hash_index():
     with connect() as con:
         cur = con.cursor()
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_hash_val ON hashes(hash_val) USING HASH;")
+        #cur.execute("CREATE INDEX IF NOT EXISTS idx_hash_val ON hashes(hash_val);")
+        cur.execute("ALTER TABLE hashes ADD INDEX (hash_val);")
         con.commit()
 
 def add_song(track_data: dict) -> str:
@@ -61,60 +88,46 @@ def add_song(track_data: dict) -> str:
     with connect() as con:
         cur = con.cursor()
 
-        youtube_url = track_data["youtube_url"]
         audio_path = track_data["audio_path"]
-        with open(audio_path, 'rb') as f:
-            waveform = f.read()
         duration_s = librosa.get_duration(path=audio_path)
 
 
-        cur.execute("""
-            INSERT INTO songs 
-                    (youtube_url, title, artist, artwork_url, waveform, duration_s)
-                    VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                youtube_url,
-                track_data["title"],
-                track_data["artist"],
-                track_data["artwork_url"],
-                waveform,
-                duration_s,
+        try:
+            cur.execute("""
+                INSERT INTO songs 
+                        (youtube_url, title, artist, artwork_url, audio_path, duration_s)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                """, (
+                    track_data["youtube_url"],
+                    track_data["title"],
+                    track_data["artist"],
+                    track_data["artwork_url"],
+                    track_data["audio_path"],
+                    duration_s,
+                )
             )
-        )
-        con.commit()
-        cur.execute("SELECT last_insert_rowid()")
+            con.commit()
+        except mysql.connector.errors.IntegrityError:
+            cur.execute("""
+            SELECT id FROM songs WHERE youtube_url = %s
+                        """, (track_data["youtube_url"],))
+            song_id = cur.fetchone()[0]
+            return song_id
+        # sqlite:
+        #cur.execute("SELECT last_insert_rowid()")
+        cur.execute("SELECT last_insert_id()")
         song_id = cur.fetchone()[0]
         return song_id
 
 
-
-def find_tracks_dir(tracks_dir: str = None):
-    if tracks_dir is not None:
-        return tracks_dir
-    tracks_dirs = glob.glob("tracks*")
-    if tracks_dirs:
-        tracks_dir = None
-        non_zip_dirs = [d for d in tracks_dirs if not d.endswith(".zip")]
-        if non_zip_dirs:
-            tracks_dir = os.path.abspath(non_zip_dirs[0])
-        else:
-            zip_path = os.path.abspath(tracks_dirs[0])
-            extract_dir = os.path.splitext(zip_path)[0]
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall(extract_dir)
-            tracks_dir = extract_dir
-    else:
-        raise FileNotFoundError(f"Could not find folder or zip archive matching the pattern 'tracks*' in {os.getcwd()}")
-
-
-def add_songs(tracks_dir: str = None, n_songs: int = None, specific_songs: list[str] = None) -> None:
+def add_songs(audio_directory: str = "./tracks", n_songs: int = None, specific_songs: list[str] = None) -> None:
     if n_songs == 0:
         return
     
-    tracks_dir = find_tracks_dir(tracks_dir)
         
-    df = pd.read_csv(os.path.join(tracks_dir, "tracks.csv"))
-    df["audio_path"] = df["audio_path"].apply(lambda x: os.path.join(tracks_dir, x))
+    df = pd.read_csv(os.path.join(audio_directory, "tracks.csv"))
+    # set audio_path to a relative path originating from current directory
+    df["audio_path"] = df["audio_path"].apply(lambda x: str(Path(audio_directory)/x))
 
     if n_songs is not None:
         df = df.head(n_songs)
@@ -127,15 +140,27 @@ def add_songs(tracks_dir: str = None, n_songs: int = None, specific_songs: list[
             add_song(row)
 
 def retrieve_song(song_id) -> dict|None:
-    with connect as con:
-        df = pd.read_sql_query("SELECT * FROM songsdemo WHERE id = ?", con, params=(song_id,))
+    with connect() as con:
+        # TODO SQLAlchemy error (consider using SQLAlchemy) - just do a normal cur.fetchall()
+        df = pd.read_sql_query("SELECT * FROM songs WHERE id = %s", con, params=(song_id,))
         if df.empty:
             return None
         row = df.iloc[0].to_dict()
         return row
+
+def retrieve_song_id(youtube_url: str) -> int:
+    with connect() as con:
+        cur = con.cursor()
+        cur.execute("SELECT id FROM songs WHERE youtube_url = %s", (youtube_url,))
+        song_id = cur.fetchone()[0]
+        try:
+            return int(song_id)
+        except:
+            return None
+
     
 def retrieve_song_ids() -> list[int]:
-    with connect as con:
+    with connect() as con:
         cur = con.cursor()
         cur.execute("SELECT id FROM songs ORDER BY id ASC")
         ids = [row[0] for row in cur.fetchall()]
@@ -144,7 +169,7 @@ def retrieve_song_ids() -> list[int]:
 def add_hash(hash_val: int, time_stamp: float, song_id: int, cur: "mysqlcursor") -> None:
     cur.execute("""INSERT INTO hashes 
                     (hash_val, time_stamp, song_id) 
-                    VALUES (?, ?, ?)""", 
+                    VALUES (%s, %s, %s)""", 
                     (hash_val, time_stamp, song_id))
     
 def add_hashes(hashes: dict[int, tuple[int, int]]):
@@ -155,20 +180,45 @@ def add_hashes(hashes: dict[int, tuple[int, int]]):
         con.commit()
 
 def retrieve_hashes(hash_val: int, cursor) -> tuple[int, int, int]|None:
-    result = cursor.execute("SELECT hash_val, time_stamp, song_id FROM hashes WHERE hash_val = ?", (hash_val,)).fetchall()
-    return result if result else None
+    cursor.execute("SELECT hash_val, time_stamp, song_id FROM hashes WHERE hash_val = %s", (hash_val,))
+    result = cursor.fetchall()
+    return result
 
 def create_tables():
-    con = mysql.connector.connect(
-        host="localhost",
-        user="root",
-    )
-    cur = con.cursor()
-    cur.execute(f"CREATE DATABASE {db_name}")
+    if system == "Darwin":
+        con = mysql.connector.connect(
+            host="localhost",
+            user="root",
+        )
+    else:
+        #load_dotenv(dotenv_path='/home/evanteal15/F25-Shazam-Clone/env/.env')
+        
+        #server = 'tcp:shazesq.database.windows.net,1433'
+        #database = 'shazamesque'
+        #username = os.getenv('USER_NAME')
+        #password = os.getenv('THE_PASSWORD')
+        #driver = '{ODBC Driver 18 for SQL Server}'
+        #connection_string = f"DRIVER={driver};SERVER={server};UID={username};PWD={password};Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
+        ## Driver={ODBC Driver 18 for SQL Server};Server=tcp:shazesq.database.windows.net,1433;Database=shazamesque;Uid=CloudSAce2ffd30;Pwd={your_password_here};Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;
+        #con = pyodbc.connect(connection_string)
+        print("Windows: CREATE DATABASE and run sql/schema.sql manually")
+        raise OSError
+
     cur = con.cursor()
     with open("sql/schema.sql", "r") as f:
         schema_sql = f.read()
-    cur.executescript(schema_sql)
-    con.commit()
+
+    try:
+        cur.execute(f"CREATE DATABASE {db_name};")
+        con.commit()
+        cur.execute(f"USE {db_name};")
+        cur.execute(schema_sql)
+    except mysql.connector.errors.DatabaseError:
+        # db exists
+        pass
+    except mysql.connector.errors.ProgrammingError:
+        # tables exist
+        pass
+
     con.close()
 

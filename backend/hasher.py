@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
 
-from DBcontrolSQLite import connect_to_db, retrieve_song, \
+from .DBcontrol import connect, retrieve_song, \
     retrieve_song_ids, retrieve_hashes, add_hashes, \
     create_hash_index, create_tables, add_songs
 
@@ -174,8 +174,12 @@ def remove_duplicate_peaks(peaks: list[tuple[int, float]]):
 def find_peaks(frequencies, times, magnitude,
                              window_size=10,
                              candidates_per_band=6):
-    #return find_peaks_windowed(frequencies, times, magnitude, window_size, candidates_per_band)
-    return find_peaks_max_prominence(frequencies, times, magnitude, window_size, candidates_per_band)
+
+    return find_peaks_windowed(frequencies, times, magnitude, window_size, candidates_per_band)
+
+    # this one has a good chance of working
+    #return find_peaks_max_prominence(frequencies, times, magnitude, window_size, candidates_per_band)
+
     #return find_peaks_max_magnitude(frequencies, times, magnitude, window_size, candidates_per_band)
 
 def find_peaks_max_magnitude(frequencies, times, magnitude, window_size, candidates_per_band):
@@ -418,18 +422,8 @@ def preprocess_audio(audio_path, sr = 11_025):
           does work though)
     """
     # resample to 11 kHz (11,025 Hz)
-    # TODO: analyze optimal resampling rate
-    #       based on the freq distribution (max freq)
-    #       of tracks in dataset, eyeballing 
-    #       approx max 15 kHz? (=> sr = 30 kHz)
-    #
-    #       also consider that musically relevent
-    #       frequencies will more than likely fall 
-    #       within 20-5512 Hz range
-    #
-    #       Fs == sr == sample_rate
     # uses a low pass filter to filter the higher frequencies to avoid aliasing (Nyquist-Shannon)
-    # then takes sequential samples of size 4 and keeps the first of each ("decimates")
+    # then takes sequential samples of size 4 and keeps the first of each ("decimate")
     audio, sr = librosa.load(audio_path, sr=sr)
 
     ## equivalent to:
@@ -442,29 +436,80 @@ def preprocess_audio(audio_path, sr = 11_025):
 
     return audio, sr
 
-def compute_source_hashes(song_ids: list[int] = None):
+def compute_source_hashes(song_ids: list[int] = None, resample_rate: None|int = 11025):
+    """
+    `song_ids=None` (default) use all song_ids from database
+
+    `resample_rate=None` to use original sampling rate from file
+
+    Assumes all songs are the same sampling rate
+    """
     if song_ids is None:
         song_ids = retrieve_song_ids()
     
     for song_id in song_ids:
         print(f"{song_id:03} ================================================")
         song = retrieve_song(song_id)
-        # print(f"{song['title']} by {song['artist']}")
-        #duration_s = song["duration_s"]
-        #audio_path = song["audio_path"]
-        waveform = song["waveform"]
-        audio_path = "temp_audio.mp3"
-        with open(audio_path, 'wb') as f:
-            f.write(waveform)
+        print(f"{song['title']} by {song['artist']}")
+        duration_s = song["duration_s"]
+        audio_path = song["audio_path"]
+
+        #waveform = song["waveform"]
+        #audio_path = "temp_audio.mp3"
+        #with open(audio_path, 'wb') as f:
+            #f.write(waveform)
         #print(audio_path)
 
-        audio, sr = preprocess_audio(audio_path)
+        audio, sr = preprocess_audio(audio_path, sr=resample_rate)
         constellation_map = create_constellation_map(audio, sr)
         hashes = create_hashes(constellation_map, song_id, sr)
         add_hashes(hashes)
-        os.remove(audio_path)
     
     create_hash_index()
+    return sr
+
+def create_samples(track_info: dict, sr: int = None, n_samples: int = 5, n_seconds: int = 5, seed=1):
+    audio, sr = preprocess_audio(track_info["audio_path"], sr)
+    samples = []
+    window_size = n_seconds * sr
+    if len(audio) < window_size:
+        raise ValueError(f"{track_info['title']}: could not create samples of length {n_seconds} sec")
+    max_start_idx = len(audio) - window_size - 1
+
+    np.random.seed(seed)
+    start_indices = np.random.randint(0, max_start_idx, size=n_samples)
+    for start_idx in start_indices:
+        sample = audio[start_idx:start_idx + window_size]
+        samples.append(sample)
+    return samples
+
+def add_noise(audio, noise_weight: float = 0.5):
+
+    # BONUS: add noise to a file
+    # brownian noise: x(n+1) = x(n) + w(n)
+    #                 w(n) = N(0,1)
+
+    #audio, sr = librosa.load(audio_path, sr=None) 
+    def peak_normalize(x):
+        # Normalize the audio to be within the range [-1, 1]
+        return x / np.max(np.abs(x))
+
+    noise = np.random.normal(0, 1, audio.shape[0])
+    noise = np.cumsum(noise)
+    noise = peak_normalize(noise)
+
+    # 16-bit integer: [-32768, 32767]
+    # (2**15 - 1) = 32767
+    #scaled = np.int16(peak_normalize(audio_with_noise) * 32767)
+    #scipy.io.wavfile.write('audio_with_noise.wav', sr, scaled)
+    #ipd.Audio("audio_with_noise.wav")
+
+    audio_with_noise = (audio + noise*noise_weight)
+    return peak_normalize(audio_with_noise)
+
+
+    # YOUR ANSWER HERE
+
 
 def score_hashes(hashes: dict[int, tuple[int, int]]) -> tuple[list[tuple[int, int]], dict[int, set[int, int]]]:
     """
@@ -476,7 +521,10 @@ def score_hashes(hashes: dict[int, tuple[int, int]]) -> tuple[list[tuple[int, in
     ```
     
     """
-    con = connect_to_db()
+    con = connect()
+    # buffered=True here solves an issue that occurs when repeatedly calling
+    #               retrieve_hashes()
+    # https://stackoverflow.com/questions/29772337/python-mysql-connector-unread-result-found-when-using-fetchone
     cur = con.cursor()
 
     # 2.3: Searching and Scoring
@@ -552,8 +600,6 @@ def score_hashes(hashes: dict[int, tuple[int, int]]) -> tuple[list[tuple[int, in
     con.close()
     return scores, time_pair_bins
 
-
-
 def init_db(tracks_dir: str = None, n_songs: int = 0, specific_songs: list[str] = None):
     """
     tracks_dir:
@@ -567,7 +613,7 @@ def init_db(tracks_dir: str = None, n_songs: int = 0, specific_songs: list[str] 
     add_songs(tracks_dir, n_songs, specific_songs)
     compute_source_hashes()
 
-def recognize_music(sample_wav_path: str, remove_sample: bool = True) -> list[tuple[int, int]]:
+def recognize_music(sample_audio_path: str, sr: None|int = None, remove_sample: bool = True) -> list[tuple[int, int]]:
     """
     returns sorted list of `(song_id, score)` tuples
     
@@ -581,9 +627,9 @@ def recognize_music(sample_wav_path: str, remove_sample: bool = True) -> list[tu
 
     song_id = recognize_music(sample_wav_path)[0][0]
     """
-    sample, sr = preprocess_audio(sample_wav_path)
+    sample, sr = preprocess_audio(sample_audio_path, sr=sr)
     if remove_sample:
-        os.remove(sample_wav_path)
+        os.remove(sample_audio_path)
     constellation_map = create_constellation_map(sample, sr)
     hashes = create_hashes(constellation_map, None, sr)
     scores, time_pair_bins = score_hashes(hashes)
