@@ -9,6 +9,7 @@ brew services start mysql
 # sudo apt update
 # sudo apt install mysql-server
 # sudo service mysql start
+# sudo mysql -e "create database shazamesque; create user 'user'@'localhost' identified by ''; grant all privileges on shazamesque.* to 'user'@'localhost';"
 
 # ----------------------------
 # mysql_secure_installation

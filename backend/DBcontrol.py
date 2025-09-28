@@ -60,7 +60,8 @@ elif system == "Windows":
     connect = connect_win
 else:
     #elif system == "Linux":
-    connect = connect_win
+    print("it's a unix system!")
+    connect = connect_unix
 
 def create_hash_index():
     with connect() as con:
@@ -185,7 +186,7 @@ def retrieve_hashes(hash_val: int, cursor) -> tuple[int, int, int]|None:
     return result
 
 def create_tables():
-    if system == "Darwin":
+    if system == "Darwin" or system == "Linux":
         con = mysql.connector.connect(
             host="localhost",
             user="root",
@@ -201,7 +202,8 @@ def create_tables():
         #connection_string = f"DRIVER={driver};SERVER={server};UID={username};PWD={password};Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
         ## Driver={ODBC Driver 18 for SQL Server};Server=tcp:shazesq.database.windows.net,1433;Database=shazamesque;Uid=CloudSAce2ffd30;Pwd={your_password_here};Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;
         #con = pyodbc.connect(connection_string)
-        print("Windows: CREATE DATABASE and run sql/schema.sql manually")
+        print("========================================================")
+        print("Windows: `CREATE DATABASE shazamesque;` and run sql/schema.sql manually")
         raise OSError
 
     cur = con.cursor()
@@ -211,11 +213,12 @@ def create_tables():
     try:
         cur.execute(f"CREATE DATABASE {db_name};")
         con.commit()
-        cur.execute(f"USE {db_name};")
-        cur.execute(schema_sql)
     except mysql.connector.errors.DatabaseError:
         # db exists
         pass
+    try:
+        cur.execute(f"USE {db_name};")
+        cur.execute(schema_sql)
     except mysql.connector.errors.ProgrammingError:
         # tables exist
         pass
