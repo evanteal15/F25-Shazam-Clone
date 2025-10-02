@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import numpy as np
-from hasher import preprocess_audio, recognize_music, compute_source_hashes, init_db
+from backend.hasher_og import preprocess_audio, recognize_music, compute_source_hashes, init_db
 import DBcontrol as db
 
 import scipy.io.wavfile as wavfile

@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
 
-from .DBcontrol import connect, retrieve_song, \
+from DBcontrol import connect, retrieve_song, \
     retrieve_song_ids, retrieve_hashes, add_hashes, \
     create_hash_index, create_tables, add_songs
 
@@ -85,6 +85,10 @@ def visualize_map_interactive(audio_path):
     )
 
     fig.show()
+    
+    # This line is needed to save the interactive plot as an HTML file when working on WSL
+    # Use this command in the terminal to open:  explorer.exe my_spectrogram.html
+    # fig.write_html("my_spectrogram.html")
 
 
 def compute_fft(audio, sr, n_fft: int = None, hop_length: int = None):
@@ -666,3 +670,7 @@ def visualize_scoring(sample_wav_path: str) -> None:
 
         plt.tight_layout()
         plt.show()
+
+if __name__ == "__main__":
+    track = '/home/evanteal15/F25-Shazam-Clone/notebooks/sample.wav'
+    visualize_map_interactive(track)
