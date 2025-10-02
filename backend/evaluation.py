@@ -1,6 +1,6 @@
 import pandas as pd
 
-from .hasher import score_hashes
+from .hasher_og import score_hashes
 
 def evaluate_model(samples):
     """
