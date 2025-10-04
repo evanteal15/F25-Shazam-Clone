@@ -472,12 +472,12 @@ def compute_source_hashes(song_ids: list[int] = None, resample_rate: None|int = 
     create_hash_index()
     return sr
 
-def create_samples(track_info: dict, sr: int = None, n_samples: int = 5, n_seconds: int = 5, seed=1):
-    audio, sr = preprocess_audio(track_info["audio_path"], sr)
+def create_samples(audio_path: str, sr: int = None, n_samples: int = 5, n_seconds: int = 5, seed=1):
+    audio, sr = preprocess_audio(audio_path, sr)
     samples = []
     window_size = n_seconds * sr
     if len(audio) < window_size:
-        raise ValueError(f"{track_info['title']}: could not create samples of length {n_seconds} sec")
+        raise ValueError(f"{audio_path}: could not create samples of length {n_seconds} sec")
     max_start_idx = len(audio) - window_size - 1
 
     np.random.seed(seed)
@@ -485,7 +485,7 @@ def create_samples(track_info: dict, sr: int = None, n_samples: int = 5, n_secon
     for start_idx in start_indices:
         sample = audio[start_idx:start_idx + window_size]
         samples.append(sample)
-    return samples
+    return samples, list(start_indices)
 
 def add_noise(audio, noise_weight: float = 0.5):
 
