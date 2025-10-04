@@ -3,6 +3,7 @@ __pycache__
 env
 env/lib/python3.12/site-packages/llvmlite/binding/libllvmlite.so
 .cache
+.idea/
 
 sql/library.db
 sql/library.db-journal
@@ -14,3 +15,5 @@ musicdl
 .musicdl_env
 tracks*
 plots_gitig
+*.zip
+week3tracks*

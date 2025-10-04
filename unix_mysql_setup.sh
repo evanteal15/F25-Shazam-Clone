@@ -1,15 +1,38 @@
 #!/bin/bash
 
-# macos:
-brew install mysql
-brew postinstall mysql
-brew services start mysql
+set -Eeuo pipefall
+
+# Sanity check command line options
+usage() {
+  echo "Usage: $0 (mac|linux)"
+}
+
+if [ $# -ne 1 ]; then
+  usage
+  exit 1
+fi
+
+case $1 in
+    "mac")
+        brew install mysql
+        brew postinstall mysql
+        brew services start mysql
+        mysql -e "create database shazamesque;"
+        mysql shazamesque
+    ;;
+    "linux")
+        sudo apt update
+        sudo apt install mysql-server
+        sudo service mysql start
+        sudo mysql -e "create database shazamesque; create user 'user'@'localhost' identified by ''; grant all privileges on shazamesque.* to 'user'@'localhost';"
+    ;;
+    *)
+        usage
+        exit 1
+        ;;
+esac
 
 # wsl:
-# sudo apt update
-# sudo apt install mysql-server
-# sudo service mysql start
-# sudo mysql -e "create database shazamesque; create user 'user'@'localhost' identified by ''; grant all privileges on shazamesque.* to 'user'@'localhost';"
 
 # ----------------------------
 # mysql_secure_installation
@@ -24,10 +47,7 @@ brew services start mysql
 # pkill mysqld
 # ls /usr/local/var/mysql
 # ----------------------------
-
-mysql -e "create database shazamesque;"
-mysql shazamesque
-
+#
 # ----------------------------
 # for setting a password:
 # (empty string for no password)

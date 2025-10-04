@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
 
-from DBcontrol import connect, retrieve_song, \
+from .DBcontrol import connect, retrieve_song, \
     retrieve_song_ids, retrieve_hashes, add_hashes, \
     create_hash_index, create_tables, add_songs
 

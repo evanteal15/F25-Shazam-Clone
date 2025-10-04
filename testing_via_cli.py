@@ -1,12 +1,11 @@
+#!/usr/bin/env python
 
-# TODO by Friday Sept 26th (Dennis)
 import os
 
 from musicdl import MusicDownloader
 from musicdl.dataloader import extract_zip, create_zip, load
-# import takes awhile
-#from backend.hasher import recognize_music
-from backend.hasher import compute_source_hashes, add_noise, create_samples, create_constellation_map, create_hashes
+
+from backend.hasher_og import compute_source_hashes, add_noise, create_samples, create_constellation_map, create_hashes
 
 from backend.DBcontrol import create_tables, add_songs, retrieve_song_id
 
@@ -17,6 +16,19 @@ from backend.recorder import record_audio
 def create_manual_test_set():
     pass
 
+def download_week3_data():
+    mdl = MusicDownloader(audio_directory="./week3tracks", audio_format="flac", use_ytdlp_cli=True)
+    mdl.download([
+        "https://open.spotify.com/playlist/4b1BfkHbghTEN0fUN0KGtf?si=68cc7a74eb9740e7"
+    ])
+    create_zip(zip_file="./week3tracks.zip", audio_directory="./week3tracks")
+
+def download_week3_data_tiny():
+    mdl = MusicDownloader(audio_directory="./week3tracks_tiny", audio_format="mp3", use_ytdlp_cli=True)
+    mdl.download([
+        "https://open.spotify.com/playlist/4b1BfkHbghTEN0fUN0KGtf?si=8b5de18bf2764b2e"
+    ])
+    create_zip(zip_file="./week3tracks_tiny.zip", audio_directory="./week3tracks_tiny")
 
 def main():
     # 1) create dataset of WAV files, loadable via zip file loader function (no dependencies)
@@ -80,7 +92,7 @@ def main():
     #Number of True Positives (noise): 33 / 40
     #Number of False Negatives / Number of True Positives (clean)
     #(correct on clean audio, but incorrect on noisy audio):
-    #33 / 34
+    #33 / 34  <- this is incorrect for some reason
     #================================
                                                 #correct_clean  correct_noise  false_positive_rate_clean  false_positive_rate_noise
     #youtube_url                                                                                                                    
@@ -94,4 +106,6 @@ def main():
     #https://www.youtube.com/watch?v=iVzXMytwCCo            1.0            1.0                        0.0                        0.0
 
 if __name__ == "__main__":
+    #download_week3_data()
+    #download_week3_data_tiny()
     main()
