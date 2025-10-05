@@ -47,7 +47,7 @@ def evaluate_on_microphone_test_set():
     samples, start_indices = load_microphone_test_set(sr, n_seconds)
     test_sample = {"source": None, "mic": None}
 
-    # TODO:
+    # TODO: 
     # source_audio, _ = preprocess_audio(..)
     #source_samples = [ source_audio[start_idx:start_idx + window_size]... for start_idx in start_indices]
     # do some error handling for invalid indexing edge cases (maybe [for loop] > [list comp])
@@ -74,12 +74,12 @@ def evaluate_on_added_noise_test_set():
     tracks_info = load(audio_directory="./tracks")
 
     # 2) function to create fingerprints of all audio files
-    #create_tables()
-    #add_songs(audio_directory = "./tracks")
+    create_tables()
+    add_songs(audio_directory = "./tracks")
 
     ##for sr in (None, 11025):
     sr = 11025
-    #sr = compute_source_hashes(resample_rate=sr)
+    sr = compute_source_hashes(resample_rate=sr)
 
     added_noise_test_set = []
 
@@ -93,6 +93,7 @@ def evaluate_on_added_noise_test_set():
             # 3) function to create labeled test set of 5s samples from dataset songs
             constellation_map = create_constellation_map(sample, sr)
             hashes = create_hashes(constellation_map, song_id, sr)
+            print(hashes)
             test_sample["source"] = {"title": track["title"], "youtube_url": track["youtube_url"], "song_id": song_id, "info": f"noiseweight0_sr{sr}_nseconds{n_seconds}_seed{seed}", "hashes": hashes}
 
             # 4) function to create labeled test set of same 5s samples with added noise
@@ -134,5 +135,5 @@ if __name__ == "__main__":
     #download_week3_data_tiny()
     #create_microphone_data(n_seconds=228)
     #load_microphone_test_set()
-    evaluate_on_microphone_test_set()
-    #evaluate_on_added_noise_test_set()
+    #evaluate_on_microphone_test_set()
+    evaluate_on_added_noise_test_set()

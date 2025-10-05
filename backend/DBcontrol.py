@@ -47,7 +47,7 @@ def connect_unix():
     con = mysql.connector.connect(
         host="localhost",
         user="root",
-        password="",
+        password="password",
         database=db_name
     )
     return con
@@ -190,6 +190,7 @@ def create_tables():
         con = mysql.connector.connect(
             host="localhost",
             user="root",
+            password="password"
         )
     else:
         #load_dotenv(dotenv_path='/home/evanteal15/F25-Shazam-Clone/env/.env')

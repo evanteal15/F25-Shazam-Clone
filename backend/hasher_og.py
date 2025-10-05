@@ -455,7 +455,7 @@ def compute_source_hashes(song_ids: list[int] = None, resample_rate: None|int = 
         print(f"{song_id:03} ================================================")
         song = retrieve_song(song_id)
         print(f"{song['title']} by {song['artist']}")
-        duration_s = song["duration_s"]
+        #duration_s = song["duration_s"]
         audio_path = song["audio_path"]
 
         #waveform = song["waveform"]
