@@ -5,10 +5,12 @@ env/lib/python3.12/site-packages/llvmlite/binding/libllvmlite.so
 .cache
 .idea/
 
-sql/library.db
-sql/library.db-journal
+library.db
+library.db-journal
 shazam_paper.pdf
 paper.pdf
+
+node_modules
 
 # files associated with music download script
 musicdl
