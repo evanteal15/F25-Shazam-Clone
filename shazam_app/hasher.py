@@ -1,6 +1,8 @@
 import numpy as np
 from scipy import signal
 
+from parameters import read_parameters
+
 # TODO: Finish this function to compute the hash of two peaks
 def create_address(anchor: tuple[int, int], target: tuple[int, int], sr: int) -> int:
     
@@ -50,6 +52,7 @@ def create_hashes(peaks, song_id: int = None, sr: int = None, fanout_t=100, fano
     
     # TODO: The loop is implemeted for you but try to understand the intuition behind it yourself
 
+    fanout_t, fanout_f = read_parameters("hashing")
     # iterate through each anchor point in the constellation map
     for i, anchor in enumerate(peaks):
         # iterate through each point in target zone for that anchor point
