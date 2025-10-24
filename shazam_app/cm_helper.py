@@ -21,6 +21,8 @@ def compute_stft(audio, sr, n_fft: int = None, hop_length: int = None):
         fft_window_size=n_fft
 
     if hop_length is None:
+        # note: should be minus
+        # win_length // 4
         hop_length = fft_window_size + (fft_window_size // 2)
 
     

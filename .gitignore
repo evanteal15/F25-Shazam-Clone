@@ -12,10 +12,11 @@ paper.pdf
 
 node_modules
 
-# files associated with music download script
+# music files
 musicdl
 .musicdl_env
 tracks*
 plots_gitig
 *.zip
 week3tracks*
+audio_samples
