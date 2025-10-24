@@ -7,10 +7,15 @@ from const_map import create_constellation_map
 from hasher import create_hashes
 from search import score_hashes
 
-from parameters import set_parameters
+from parameters import set_parameters, read_parameters
+
+#
+# 1 / 3: list samples to use to evaluate recognition performance
+#
 
 microphone_sample_list = [
     ("Plastic Beach", "Gorillaz", "audio_samples/plastic_beach_microphone_recording.wav")
+    ("DOGTOOTH", "Tyler, The Creator", "tracks/audio/TylerTheCreator_DOGTOOTH_QdkbuXIJHfk.flac")
     # ...
 ]
 
@@ -33,7 +38,12 @@ def augment_samples(sr, noise_weight):
             (sample["title"], sample["artist"])
         )
 
-        song_id = cur.fetchall()[0]["song_id"]
+        res = cur.fetchone()
+        if res: 
+            song_id = res["song_id"]
+        else:
+            raise ValueError(f'\'{sample["title"]}\' by \'{sample["artist"]}\' not found.\nSpelling of name/artist might be different from the spelling in tracks/audio/tracks.csv?')
+        
         sample_slices = create_samples(sample["audio_path"], sr, n_samples = 20)
         sample_slices_noisy = [add_noise(audio, noise_weight) for audio in sample_slices]
         samples.extend([
@@ -46,30 +56,9 @@ def augment_samples(sr, noise_weight):
 
 
 
-def perform_recognition_test():
-    """
-    """
-    #init_db()
-    sr = 11025
-    init_db(n_songs=2)
-    results = []
-    samples = augment_samples(sr=sr, noise_weight=0.3)
-    for sample in samples:
-        result = {}
-        ground_truth_song_id = sample["song_id"]
-
-        # peaks -> hashes -> scores
-        constellation_map = create_constellation_map(sample["microphone"], sr=sr)
-        hashes = create_hashes(constellation_map, None, sr)
-        scores, time_pair_bins = score_hashes(hashes)
-        result = {
-            "ground_truth": ground_truth_song_id,
-            "prediction": scores[0][0],
-            "correct": ground_truth_song_id == scores[0][0]
-        }
-
-        results.append(result)
-
+#
+# 2 / 3: Compute some metrics using output of search.py
+#
 
 def std_of_deltaT(song_id, time_pair_bins, sr=11025):
     """
@@ -80,21 +69,22 @@ def std_of_deltaT(song_id, time_pair_bins, sr=11025):
     lower is better - suggests that the time offsets are behaving consistently
     """
     time_pair_bin = time_pair_bins[song_id]
-    deltaT_vals = sorted([sourceT-sampleT for (sourceT, sampleT) in time_pair_bin])
 
     # 1) take the difference in time between sourceT and sampleT
-    #    values represent the offset suggested by the presence of a hash match
+    #    values represent the offset suggested by the presence of the 
+    # respective hash match
     # ex: offset = 40
     # data might look like [-4, 5, 8, 40, 40, 40, ..., 40, 40, 40, 56, 68, 80]
-    first_order_differences = [deltaT_vals[i] - deltaT_vals[i-1] 
-                                for i in range(1, len(deltaT_vals))]
+    deltaT_vals = sorted([sourceT-sampleT for (sourceT, sampleT) in time_pair_bin])
 
-    # 2) then, take the difference between adjacent differences
-    #    removes influence of offset
+    #    Potential idea: then, take the difference between adjacent deltaT values
+    #    removes influence of offset / outlier offset values
     #    values are close to zero for consistent time offsets
     # ex: [9, 3, 0, 0, 0, ..., 0, 0, 16, 12, 12]
-    second_order_differences = [first_order_differences[i] - first_order_differences[i-1]
-                                for i in range(1, len(first_order_differences))]
+    #second_order_differences = [deltaT_vals[i] - deltaT_vals[i-1] 
+                                #for i in range(1, len(deltaT_vals))]
+    # not doing this step makes the metric more interpretable
+                                
 
     # 3) compute the standard deviation of these differences, measured in seconds
     #    return a metric between 0 and 1000
@@ -109,7 +99,8 @@ def std_of_deltaT(song_id, time_pair_bins, sr=11025):
     # std(x * v) = x * std(v)
     hop_length = 1024 // 2  # sidenote: not 1024 + (1024 // 2) as in cm_helper.py
 
-    return np.max(np.std(second_order_differences) * 1000 * (hop_length/sr), 1000)
+    return np.max(np.std(deltaT_vals) * 1000 * (hop_length/sr), 1000)
+
 
 def count_hash_matches(song_id, time_pair_bins, n_sample_hashes):
     """
@@ -128,13 +119,118 @@ def count_hash_matches(song_id, time_pair_bins, n_sample_hashes):
     return np.max(n_matches / n_sample_hashes, 1)
 
 
-def compute_performance_metrics():
-    pass
+def compute_performance_metrics(song_id, time_pair_bins, n_sample_hashes, sr=11025):
+    """
+    given the output from search.py:score_hashes(), computes metrics that
+    evaluate how close a given song_id matches the sample audio
 
+    returns a dictionary containing metrics
+
+    ## Metrics:
+     
+    - `std_of_deltaT`: less is better, (0-1000 ms)
+    - `count_hash_matches`: more is better, n_matches / n_sample_hashes (0-1)
+    
+    note: `count_hash_matches * n_sample_hashes`: gives count of matches in number of hashes, (0-n_sample_hashes) (max is n_sample_hashes, not n_hashes)
+    """
+    return {
+        "std_of_deltaT": std_of_deltaT(song_id, time_pair_bins, sr),
+        "count_hash_matches": count_hash_matches(song_id, time_pair_bins, n_sample_hashes),
+        "n_sample_hashes": n_sample_hashes
+    }
+
+
+
+
+def perform_recognition_test():
+    """
+    returns a tuple:
+    `(n_correct / n_samples, performance results for each sample)`
+
+    first value is the proportion of correct recognitions
+
+    samples specified based on slicing of samples in `microphone_sample_list`
+    using `grid_search.py:augment_samples()`
+    """
+    #init_db()
+    sr = 11025
+    init_db(n_songs=2)
+    results = []
+    samples = augment_samples(sr=sr, noise_weight=0.3)
+    for sample in samples:
+        result = {}
+        ground_truth_song_id = sample["song_id"]
+
+        # peaks -> hashes
+        constellation_map = create_constellation_map(sample["microphone"], sr=sr)
+        hashes = create_hashes(constellation_map, None, sr)
+
+        # hashes -> metrics
+        scores, time_pair_bins = score_hashes(hashes)
+        n_sample_hashes = len(hashes)
+        n_potential_matches = np.min(len(scores), 5)
+        metrics_per_potential_match = {}
+        for potential_song_id, potential_score in scores[:n_potential_matches]:
+            metrics_per_potential_match[potential_song_id] = compute_performance_metrics(
+                potential_song_id, time_pair_bins, n_sample_hashes, sr
+            )
+            metrics_per_potential_match[potential_song_id]["histogram_max_height"] = potential_score
+        
+
+        # store metrics for each sample
+        result = {
+            "ground_truth": ground_truth_song_id,
+            "prediction": scores[0][0],
+            "correct": ground_truth_song_id == scores[0][0],
+            "metrics": metrics_per_potential_match,
+            "microphone_audio": sample["microphone"]
+        }
+
+        results.append(result)
+
+    return sum(r["correct"] for r in results) / len(samples), results
 
 def run_grid_search():
-    pass
+    max_proportion_correct = 0
+    max_params = 0
+    max_results = {}
+
+    proportion_correct = 0
+    results = {}
+    for cm_window_size in [10]:
+        for candidates_per_band in range(3, 10):
+            parameters = {
+                "cm_window_size": cm_window_size,
+                "candidates_per_band": candidates_per_band
+                # ...
+            }
+
+            # unspecified parameters are set to their defaults
+            #
+            # **dict notation:
+            # converts {"key1": value1, "key2": value2}
+            #          -> key1=value1, key2=value2
+            set_parameters(**parameters)
+            proportion_correct, results = perform_recognition_test()
+            if proportion_correct > max_proportion_correct:
+                max_proportion_correct = proportion_correct
+                max_params = read_parameters("all_parameters")
+                max_results = results
+
+    return max_results, max_params
+    
 
 
 if __name__ == "__main__":
-    run_grid_search()
+    max_results, max_params = run_grid_search()
+    print("=============")
+    print("max parameters:")
+    print("=============")
+
+    print(max_params)
+
+    print("=============")
+    print("results:")
+    print("=============")
+
+    print(max_results)

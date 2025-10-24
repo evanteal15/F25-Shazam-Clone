@@ -1,6 +1,6 @@
 {
   "constellation_mapping": {
-    "window_size": 10,
+    "cm_window_size": 10,
     "candidates_per_band": 6,
     "bands": [
       [

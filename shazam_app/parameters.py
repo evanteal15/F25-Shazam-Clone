@@ -11,7 +11,7 @@ parameters_json = "./parameters.json"
 #        read_parameters(...) anywhere in the codebase)
 
 def set_parameters(
-        window_size=10,
+        cm_window_size=10,
         candidates_per_band=6,
         bands=[(0,10),(10,20),(20,40),(40,80),(80,160),(160,512)],
         fanout_t=100,
@@ -22,7 +22,7 @@ def set_parameters(
     """
     parameters = {
         "constellation_mapping": {
-            "window_size": window_size,
+            "cm_window_size": cm_window_size,
             "candidates_per_band": candidates_per_band,
             "bands": [list(interval) for interval in bands],
         },
@@ -36,7 +36,7 @@ def set_parameters(
     return parameters
     
 
-def read_parameters(paramset: str):
+def read_parameters(paramset: str = "all_parameters"):
     """
     ```
     # const_map.py
@@ -44,6 +44,9 @@ def read_parameters(paramset: str):
 
     # hasher.py
     fanout_t, fanout_f = read_parameters("hashing")
+
+    # all
+    returns dict containing all parameters
 
     ```
     """
@@ -55,14 +58,17 @@ def read_parameters(paramset: str):
 
     if paramset == "constellation_mapping":
         cm = params.get("constellation_mapping", {})
-        window_size = cm.get("window_size")
+        cm_window_size = cm.get("cm_window_size")
         candidates_per_band = cm.get("candidates_per_band")
         bands = [tuple(b) for b in cm.get("bands", [])]
-        return window_size, candidates_per_band, bands
+        return cm_window_size, candidates_per_band, bands
 
     if paramset == "hashing":
         h = params.get("hashing", {})
         return h.get("fanout_t"), h.get("fanout_f")
+
+    if paramset == "all_parameters":
+        return params
 
     return params
 
