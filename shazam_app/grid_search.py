@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 from cm_helper import create_samples, add_noise
 from DBcontrol import init_db, connect
@@ -8,13 +9,14 @@ from hasher import create_hashes
 from search import score_hashes
 
 from parameters import set_parameters, read_parameters
+from pathlib import Path
 
 #
 # 1 / 3: list samples to use to evaluate recognition performance
 #
 
 microphone_sample_list = [
-    ("Plastic Beach", "Gorillaz", "audio_samples/plastic_beach_microphone_recording.wav")
+    ("Plastic Beach (feat. Mick Jones and Paul Simonon)", "Gorillaz", "audio_samples/plastic_beach_microphone_recording.wav"),
     ("DOGTOOTH", "Tyler, The Creator", "tracks/audio/TylerTheCreator_DOGTOOTH_QdkbuXIJHfk.flac")
     # ...
 ]
@@ -33,14 +35,14 @@ def augment_samples(sr, noise_weight):
         cur.execute(
             "SELECT id AS song_id "
             "FROM songs "
-            "WHERE title ILIKE %?% "  # could use LIKE, could use =
-            "AND artist ILIKE %?% ",
+            "WHERE title LIKE ? "
+            "AND artist = ?",
             (sample["title"], sample["artist"])
         )
 
         res = cur.fetchone()
         if res: 
-            song_id = res["song_id"]
+            song_id = res[0]
         else:
             raise ValueError(f'\'{sample["title"]}\' by \'{sample["artist"]}\' not found.\nSpelling of name/artist might be different from the spelling in tracks/audio/tracks.csv?')
         
@@ -99,24 +101,19 @@ def std_of_deltaT(song_id, time_pair_bins, sr=11025):
     # std(x * v) = x * std(v)
     hop_length = 1024 // 2  # sidenote: not 1024 + (1024 // 2) as in cm_helper.py
 
-    return np.max(np.std(deltaT_vals) * 1000 * (hop_length/sr), 1000)
+    return min(np.std(deltaT_vals) * (hop_length/sr), 1000)
 
 
 def count_hash_matches(song_id, time_pair_bins, n_sample_hashes):
     """
     naive heuristic that counts the number of hash matches between sample and source
     
-    divides by the number of sample hashes to give a number between 0 and 1
-
-    multiply by `n_sample_hashes` to get number of matches
-
     note: there can be repeated matches for a single hash value present in sample
-    - cap metric at one if n_matches > n_sample_hashes
 
     higher is better - suggests that many hashes show up in both sample and source
     """
     n_matches = len(time_pair_bins[song_id]) 
-    return np.max(n_matches / n_sample_hashes, 1)
+    return n_matches
 
 
 def compute_performance_metrics(song_id, time_pair_bins, n_sample_hashes, sr=11025):
@@ -129,20 +126,22 @@ def compute_performance_metrics(song_id, time_pair_bins, n_sample_hashes, sr=110
     ## Metrics:
      
     - `std_of_deltaT`: less is better, (0-1000 ms)
-    - `count_hash_matches`: more is better, n_matches / n_sample_hashes (0-1)
+    - `n_hash_matches`: more is better
+    - `prop_hash_matches`: `min(cout_hash_matches / n_sample_hashes, 1)
     
-    note: `count_hash_matches * n_sample_hashes`: gives count of matches in number of hashes, (0-n_sample_hashes) (max is n_sample_hashes, not n_hashes)
     """
-    return {
+    metrics = {
         "std_of_deltaT": std_of_deltaT(song_id, time_pair_bins, sr),
-        "count_hash_matches": count_hash_matches(song_id, time_pair_bins, n_sample_hashes),
+        "n_hash_matches": count_hash_matches(song_id, time_pair_bins, n_sample_hashes),
         "n_sample_hashes": n_sample_hashes
     }
+    metrics["prop_hash_matches"] = min(metrics["n_hash_matches"] / metrics["n_sample_hashes"], 1)
+    return metrics
 
 
 
 
-def perform_recognition_test():
+def perform_recognition_test(n_songs=None):
     """
     returns a tuple:
     `(n_correct / n_samples, performance results for each sample)`
@@ -154,7 +153,7 @@ def perform_recognition_test():
     """
     #init_db()
     sr = 11025
-    init_db(n_songs=2)
+    init_db(n_songs=n_songs)
     results = []
     samples = augment_samples(sr=sr, noise_weight=0.3)
     for sample in samples:
@@ -168,7 +167,7 @@ def perform_recognition_test():
         # hashes -> metrics
         scores, time_pair_bins = score_hashes(hashes)
         n_sample_hashes = len(hashes)
-        n_potential_matches = np.min(len(scores), 5)
+        n_potential_matches = min(len(scores), 5)
         metrics_per_potential_match = {}
         for potential_song_id, potential_score in scores[:n_potential_matches]:
             metrics_per_potential_match[potential_song_id] = compute_performance_metrics(
@@ -191,6 +190,7 @@ def perform_recognition_test():
     return sum(r["correct"] for r in results) / len(samples), results
 
 def run_grid_search():
+    n_songs = 4
     max_proportion_correct = 0
     max_params = 0
     max_results = {}
@@ -198,7 +198,7 @@ def run_grid_search():
     proportion_correct = 0
     results = {}
     for cm_window_size in [10]:
-        for candidates_per_band in range(3, 10):
+        for candidates_per_band in range(4, 7):
             parameters = {
                 "cm_window_size": cm_window_size,
                 "candidates_per_band": candidates_per_band
@@ -211,7 +211,7 @@ def run_grid_search():
             # converts {"key1": value1, "key2": value2}
             #          -> key1=value1, key2=value2
             set_parameters(**parameters)
-            proportion_correct, results = perform_recognition_test()
+            proportion_correct, results = perform_recognition_test(n_songs)
             if proportion_correct > max_proportion_correct:
                 max_proportion_correct = proportion_correct
                 max_params = read_parameters("all_parameters")
@@ -233,4 +233,7 @@ if __name__ == "__main__":
     print("results:")
     print("=============")
 
-    print(max_results)
+    #print(max_results)
+    max_results_df = pd.DataFrame(max_results)
+    max_results_df.to_pickle("max_results.pkl")
+    print("saved results to pkl file")
