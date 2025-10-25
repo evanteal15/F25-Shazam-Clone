@@ -1,8 +1,10 @@
 import numpy as np
 import pandas as pd
+from itertools import product
 
+from cm_visualizations import visualize_map_interactive
 from cm_helper import create_samples, add_noise
-from DBcontrol import init_db, connect
+from DBcontrol import init_db, connect, retrieve_song
 
 from const_map import create_constellation_map
 from hasher import create_hashes
@@ -17,7 +19,7 @@ from pathlib import Path
 
 microphone_sample_list = [
     ("Plastic Beach (feat. Mick Jones and Paul Simonon)", "Gorillaz", "audio_samples/plastic_beach_microphone_recording.wav"),
-    ("DOGTOOTH", "Tyler, The Creator", "tracks/audio/TylerTheCreator_DOGTOOTH_QdkbuXIJHfk.flac")
+    #("DOGTOOTH", "Tyler, The Creator", "tracks/audio/TylerTheCreator_DOGTOOTH_QdkbuXIJHfk.flac")
     # ...
 ]
 
@@ -189,40 +191,45 @@ def perform_recognition_test(n_songs=None):
 
     return sum(r["correct"] for r in results) / len(samples), results
 
-def run_grid_search():
-    n_songs = 4
+def run_grid_search(n_songs=None):
     max_proportion_correct = 0
     max_params = 0
     max_results = {}
-
     proportion_correct = 0
     results = {}
-    for cm_window_size in [10]:
-        for candidates_per_band in range(4, 7):
-            parameters = {
-                "cm_window_size": cm_window_size,
-                "candidates_per_band": candidates_per_band
-                # ...
-            }
 
-            # unspecified parameters are set to their defaults
-            #
-            # **dict notation:
-            # converts {"key1": value1, "key2": value2}
-            #          -> key1=value1, key2=value2
-            set_parameters(**parameters)
-            proportion_correct, results = perform_recognition_test(n_songs)
-            if proportion_correct > max_proportion_correct:
-                max_proportion_correct = proportion_correct
-                max_params = read_parameters("all_parameters")
-                max_results = results
+    grid_cmws = [4,5,10]
+    grid_cpb = [5,7,10]
+    grid_bands = [[(0,20), (20, 40), (40,80), (80,160), (160, 320), (320,512)]]
+
+    for (
+        cm_window_size, candidates_per_band, bands
+        ) in list(product(grid_cmws, grid_cpb, grid_bands)):
+        parameters = {
+            "cm_window_size": cm_window_size,
+            "candidates_per_band": candidates_per_band,
+            "bands": bands
+            # ...
+        }
+
+        # unspecified parameters are set to their defaults
+        #
+        # **dict notation:
+        # converts {"key1": value1, "key2": value2}
+        #          -> key1=value1, key2=value2
+        set_parameters(**parameters)
+        proportion_correct, results = perform_recognition_test(n_songs)
+        if proportion_correct > max_proportion_correct:
+            max_proportion_correct = proportion_correct
+            max_params = read_parameters("all_parameters")
+            max_results = results
 
     return max_results, max_params
     
 
 
 if __name__ == "__main__":
-    max_results, max_params = run_grid_search()
+    max_results, max_params = run_grid_search(n_songs=2)
     print("=============")
     print("max parameters:")
     print("=============")
@@ -237,3 +244,6 @@ if __name__ == "__main__":
     max_results_df = pd.DataFrame(max_results)
     max_results_df.to_pickle("max_results.pkl")
     print("saved results to pkl file")
+
+    plastic_beach = retrieve_song(1)["audio_path"]
+    visualize_map_interactive(plastic_beach)

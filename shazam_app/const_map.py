@@ -29,9 +29,9 @@ def remove_duplicate_peaks(peaks: list[tuple[int, float]]):
     for i in range(len(peaks)):
         for j in range(len(peaks[i:min(i+15, len(peaks)-1)])):
             j = j+i+1
-            if peaks_are_duplicate(peaks[i], peaks[j]):
-                peaks[j] = None
-    return [peak for peak in peaks if peak is not None]
+            if peaks_are_duplicate(peaksc[i], peaksc[j]):
+                peaksc[j] = None
+    return [peak for peak in peaksc if peak is not None]
             
     # return unique_peaks
 
@@ -87,7 +87,14 @@ def find_peaks_windowed(frequencies, times, magnitude,
             sub_tile = window[f_start:f_end, :]
 
             # Flatten and get indices of top candidates in this frequency band
-            flat_indices = np.argpartition(sub_tile.ravel(), -candidates_per_band)[-candidates_per_band:]
+            try:
+                flat_indices = np.argpartition(sub_tile.ravel(), -candidates_per_band)[-candidates_per_band:]
+            except Exception as e:
+                print(candidates_per_band)
+                print(sub_tile.ravel().shape)
+                print()
+                print(sub_tile.ravel())
+                raise e
 
             for idx in flat_indices:
                 f_local, t_local = np.unravel_index(idx, sub_tile.shape)
@@ -105,6 +112,7 @@ def find_peaks_windowed(frequencies, times, magnitude,
             constellation_map.append(peak)
 
     return remove_duplicate_peaks(constellation_map)
+
 
 
 def create_constellation_map(audio, sr, hop_length=None) -> list[list[int]]:
