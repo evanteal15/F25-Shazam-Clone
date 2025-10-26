@@ -11,6 +11,9 @@ shazam_paper.pdf
 paper.pdf
 
 node_modules
+*.pkl
+my_spectrogram.html
+parameters.html
 
 # music files
 musicdl

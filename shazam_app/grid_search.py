@@ -199,7 +199,7 @@ def run_grid_search(n_songs=None):
     results = {}
 
     grid_cmws = [4,5,10]
-    grid_cpb = [5,7,10]
+    grid_cpb = [5,7]
     grid_bands = [[(0,20), (20, 40), (40,80), (80,160), (160, 320), (320,512)]]
 
     for (

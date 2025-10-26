@@ -16,7 +16,6 @@ def visualize_map_interactive(audio_path):
     frequencies, times, magnitudes = compute_stft(audio, sr)
     magnitudes = convert_to_decibel(magnitudes)
     print(magnitudes.shape)
-    print(frequencies.shape)
 
     constellation_map = find_peaks(frequencies, times, magnitudes)
     peak_times = [times[t] for t, f in constellation_map]
@@ -40,7 +39,8 @@ def visualize_map_interactive(audio_path):
         mode='markers',
         marker=dict(size=7, color='white', symbol='square-open'),
         name='Constellation Map',
-        visible=True
+        visible=True,
+        showlegend=False
     ))
 
     # overlay constellation peaks with a toggleable checkbox
@@ -78,9 +78,21 @@ def visualize_map_interactive(audio_path):
         ]
     )
 
+
+
+
     # fig.show()
     #######################################################################
-    # October 26th additions
+    
+    # This line is needed to save the interactive plot as an HTML file when working on WSL
+    # Use this command in the terminal to open:  explorer.exe my_spectrogram.html
+    fig.write_html("my_spectrogram.html")
+
+    #######################################################################
+    # Week 5: October 26th
+    # Visualize parameters of recognition model
+    # insert after fig.write_html("my_spectrogram.html")
+
     from parameters import read_parameters
     parameters = read_parameters("all_parameters")
     cm_window_size = parameters["constellation_mapping"]["cm_window_size"]
@@ -91,79 +103,75 @@ def visualize_map_interactive(audio_path):
     # draw cm window (vertically spanning rectangle)
     fig.add_vrect(x0=0, x1=cm_window_size, line={"color":"white"})
 
-    # draw frequency bands within cm_window
+    # draw frequency bands within cm window
     for (b0, b1) in bands:
         fig.add_shape(type="line", x0=0, x1=cm_window_size,
                       y0=frequencies[b1], y1=frequencies[b1], line={"color":"white"})
     
-    # draw fan-out factor
+    # draw fan-out factor visualization
     idx = 0
     for i, (t,f) in enumerate(constellation_map):
-        if t > cm_window_size + 5:
+        # pick a peak after the cm window overlay
+        # somewhere in the upper 2/3rds of the frequency range
+        if times[t] > cm_window_size + 5 and f >= frequencies[len(frequencies) // 3]:
             idx = i
             break
-    #peak_anchor = constellation_map[idx]
-    peak_anchor = constellation_map[100]
-    print(peak_anchor)
 
+    # draw lines between anchor point and target points
+    # target points are green squares
+    peak_anchor = constellation_map[idx]
+
+    # draw target zone
     fig.add_shape(type="rect",
-    #xref="x", yref="y",
-    x0=peak_anchor[0] + 1, x1=peak_anchor[0] + fanout_t,
-    #y0=peak_anchor[1] - (fanout_f / 2), y1=peak_anchor[1] + (fanout_f / 2),
-    y0=peak_anchor[1] - fanout_f, y1=peak_anchor[1] + fanout_f,
-    line=dict(
-        color="#39FF14",
-        width=3,
-    ),
-    )
-    cur_t = 0
-    for p in constellation_map:
-        if p[0] < cur_t:
-            print("ahhhhhhhhh!")
-            cur_t = p[0]
-        elif cur_t == p[0]:
-            continue
-        else:
-            print(p[0])
-            cur_t = p[0]
+        x0=times[peak_anchor[0] + 1], x1=times[peak_anchor[0] + fanout_t],
+        y0=peak_anchor[1] - fanout_f, y1=peak_anchor[1] + fanout_f,
+        line=dict(
+            color="#39FF14",
+            width=3,), 
+        showlegend=False)
 
-    print('done!')
-    fig.add_scatter(x=(peak_anchor[0],), y=(peak_anchor[1],), 
-                    marker={"size": 20, "color": "#39FF14", "symbol":"square-open"},)
-                    #line=dict(width=4))
+    # highlight anchor point
+    fig.add_scatter(x=(times[peak_anchor[0]],), y=(peak_anchor[1],),
+                    marker={"size": 20, "color": "#39FF14", "symbol":"square-open"},
+                    showlegend=False)
     
-    target_zone_peaks = [peak_target 
+    target_zone_peaks = [(times[peak_target[0]], peak_target[1])
                             for peak_target in constellation_map#[idx+1:] 
                             if (peak_target[0] - peak_anchor[0]) > 1
                             and (peak_target[0] - peak_anchor[0]) < fanout_t
-                            and (np.abs(peak_target[1] - peak_anchor[1]) < fanout_f)]
-                            #and (peak_anchor[0] > peak_target[0])]
-    print("===============")
-    print(peak_anchor)
-    print("===============")
-    print(target_zone_peaks)
-    print("===============")
-    for peak in target_zone_peaks:
-        print(peak)
+                            and (np.abs(peak_target[1] - peak_anchor[1]) < fanout_f)
+                            and (peak_anchor[0] < peak_target[0])]
+
+    for peak_target in target_zone_peaks:
+        # draw a line between anchor and target
         fig.add_shape(type="line",
-                      x0=peak_anchor[0], x1 = times[peak[0]],
-                      y0=peak_anchor[1], y1 = peak[1], line=dict(
+                      x0=times[peak_anchor[0]], x1 = peak_target[0],
+                      y0=peak_anchor[1], y1 = peak_target[1], 
+                      line=dict(
                           color="#39FF14",
-                          width=0.5,
-                          ))
+                          width=0.5,),
+                      showlegend=False)
 
+        # replace white squares with green squares for target peaks
+        fig.add_scatter(x=(peak_target[0],), y=(peak_target[1],),
+                        mode='markers',
+                        marker={"size": 7, "color": "#39FF14", "symbol":"square-open"},
+                        showlegend=False)
 
-
-
-
+    fig.write_html("parameters.html")
     #######################################################################
-    
-    # This line is needed to save the interactive plot as an HTML file when working on WSL
-    # Use this command in the terminal to open:  explorer.exe my_spectrogram.html
-    fig.write_html("my_spectrogram.html")
+
+
     
 if __name__ == "__main__":
     
     # TODO: replace the path below with an audio file from audio samples folder
     audio_path = "audio_samples/pb_recording_short.wav"
     visualize_map_interactive(audio_path)
+
+    # redline
+    #fig.add_shape(type="line", x0=peak_anchor[0], x1=peak_anchor[0],
+                  #y0=0, y1=frequencies[-1], line=dict(color="red", width = 10))
+
+    #fig.add_shape(type="line", x0=times[peak_anchor[0]], x1=times[peak_anchor[0]],
+                  #y0=0, y1=frequencies[-1], line=dict(color="white", width = 10))

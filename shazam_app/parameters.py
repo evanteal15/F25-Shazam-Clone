@@ -15,7 +15,7 @@ def set_parameters(
         candidates_per_band=6,
         bands=[(0,10),(10,20),(20,40),(40,80),(80,160),(160,512)],
         fanout_t=100,
-        fanout_f=3000
+        fanout_f=1500
         ):
     """
     Used by `grid_search.py` to search for optimal parameters
