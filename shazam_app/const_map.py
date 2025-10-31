@@ -1,7 +1,6 @@
 import numpy as np
 
 from cm_helper import compute_stft
-from parameters import read_parameters
 
 # Provided functions for finding if two peaks are "duplicates" (too close to each other)
 def peaks_are_duplicate(peak1: tuple[int, float] = None, peak2: tuple[int,float] = None):
@@ -68,6 +67,7 @@ def find_peaks_windowed(frequencies, times, magnitude,
     bands = [(0, 10), (10, 20), (20, 40), (40, 80), (80, 160), (160, 512)]
     #bands = [(0, 30), (30, 60), (60, 90), (90, 120), (120, 160), (160, 330), (330, 512)]
 
+    from parameters import read_parameters
     window_size, candidates_per_band, bands = read_parameters("constellation_mapping")
     # slide a window across time axis
     # height: entire frequency range

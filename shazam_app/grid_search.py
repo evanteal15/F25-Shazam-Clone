@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from itertools import product
+import librosa
 
 from cm_visualizations import visualize_map_interactive
 from cm_helper import create_samples, add_noise
@@ -22,6 +23,7 @@ microphone_sample_list = [
     #("DOGTOOTH", "Tyler, The Creator", "tracks/audio/TylerTheCreator_DOGTOOTH_QdkbuXIJHfk.flac")
     # ...
 ]
+
 
 microphone_sample_list = [
     {"title": v[0], "artist": v[1], "audio_path": v[2]} 
@@ -141,6 +143,138 @@ def compute_performance_metrics(song_id, time_pair_bins, n_sample_hashes, sr=110
     return metrics
 
 
+def old_simulate_microphone_from_source(y, sr):
+
+    # ensure 1D
+    y = np.asarray(y)
+    if y.ndim > 1:
+        y = np.mean(y, axis=0)
+
+    # 1) bandwidth limitation (simulate cheap mic low-pass) via resampling
+    target_sr = min(8000, sr)
+    if target_sr < sr:
+        y = librosa.resample(y, orig_sr=sr, target_sr=target_sr)
+        y = librosa.resample(y, orig_sr=target_sr, target_sr=sr)
+
+    # 2) simple dynamic range compressor (frame RMS -> dB -> gain reduction)
+    frame_len = max(1, int(0.02 * sr))  # 20 ms window
+    window = np.ones(frame_len) / frame_len
+    power = np.convolve(y * y, window, mode="same")
+    rms = np.sqrt(power + 1e-12)
+    db = 20.0 * np.log10(rms + 1e-12)
+
+    thresh_db = -25.0   # threshold (dB)
+    ratio = 4.0         # compression ratio
+    over_db = np.maximum(db - thresh_db, 0.0)
+    reduction_db = over_db * (1.0 - 1.0 / ratio)
+
+    # smooth gain changes to simulate attack/release
+    #smooth_len = max(1, int(0.01 * sr))  # 10 ms smoothing
+    #smooth_k = np.ones(smooth_len) / smooth_len
+    #reduction_db = np.convolve(reduction_db, smooth_k, mode="same")
+
+    #gain = 10.0 ** (-reduction_db / 20.0)
+    #gain = 10.0 ** (-reduction_db / 10.0)
+    gain = 10.0 ** (-reduction_db / 10.0)
+    y_compressed = y * gain
+
+    # makeup gain to restore perceived loudness
+    makeup_db = 6.0
+    y_compressed *= 10.0 ** (makeup_db / 20.0)
+
+    # 3) soft clipping to simulate mic preamp saturation
+    #y_compressed = np.tanh(y_compressed)
+
+    # 4) reduce effective bit depth (quantization noise)
+    #quant_bits = 16
+    #max_val = 2 ** (quant_bits - 1) - 1
+    #y_compressed = np.round(y_compressed * max_val) / float(max_val)
+
+    # 5) add low-level microphone noise/hiss
+    #noise_level = 1e-3 * max(1.0, np.std(y_compressed))
+    #y_compressed = y_compressed + np.random.normal(0.0, noise_level, size=y_compressed.shape)
+
+    # clamp to [-1, 1]
+    #y_compressed = np.clip(y_compressed, -1.0, 1.0)
+
+    return y_compressed
+
+def simulate_microphone_from_source(y, sr):
+    """
+    does two things:
+
+    1) Harmonic-Percussive Source Separation (HPSS) using librosa
+
+    2) Dynamic Range Compression using pydub
+    """
+    D = librosa.stft(y)
+    H, P = librosa.decompose.hpss(D)
+
+    y_harmonic = librosa.istft(H)
+    y_harmonic = np.pad(y_harmonic,
+                          int(max(len(y) - len(y_harmonic), 0)/2))
+
+    y_percussive = librosa.istft(P)
+    y_percussive = np.pad(y_percussive,
+                          int(max(len(y) - len(y_percussive), 0)/2))
+
+
+    from pydub import AudioSegment
+    from pydub.effects import compress_dynamic_range, low_pass_filter
+    max_amplitude = np.iinfo(np.int16()).max
+    y_int16 = (y * max_amplitude).astype(np.int16)
+    y_audioseg = AudioSegment(
+        data = y_int16.tobytes(),
+        frame_rate = sr,
+        sample_width = y_int16.dtype.itemsize,
+        channels=1)
+    
+    y_audioseg = low_pass_filter(y_audioseg, 6000)
+
+    threshold = -40  # default -20
+    ratio = 4.0
+    attack = 10
+    release = 50
+    # https://github.com/jiaaro/pydub/blob/master/pydub/effects.py#L116
+    # https://en.wikipedia.org/wiki/Dynamic_range_compression
+    y_audioseg = compress_dynamic_range(
+        y_audioseg,
+        threshold=threshold,
+        ratio = ratio,
+        attack = attack,
+        release=release
+    )
+    # cutoff in Hz
+    # https://github.com/jiaaro/pydub/blob/master/pydub/effects.py#L222
+
+    y_compressed = (np.array(y_audioseg.get_array_of_samples()) / max_amplitude).astype(np.float32)
+    #return np.clip(y_compressed + (y_percussive * 0.3), -1, 1)
+    return y_compressed + (y_percussive * 0.3)
+
+
+
+
+def sample_from_source_audios(tracks_dir = "./tracks", sr=11025):
+    """
+    assumes that song_ids correspond to order that tracks appear in csv
+
+    (first row => song_id = 1, ...)
+    """
+    samples = []
+    noise_weight = 0.4
+    tracks_dir = Path(tracks_dir)
+    df = pd.read_csv(tracks_dir/"tracks.csv")
+    for idx, track in df.iterrows():
+        song_id = idx + 1
+        sample_slices = create_samples(tracks_dir/track["audio_path"], sr, n_samples=5, n_seconds=5, seed=1)
+        sample_slices_noisy = [add_noise(audio, noise_weight) for audio in sample_slices]
+        samples.extend([
+            {"song_id": song_id,
+             "microphone": s[0],
+             "microphone_with_noise": s[1]
+             } for s in zip(sample_slices, sample_slices_noisy)
+        ])
+    return samples
 
 
 def perform_recognition_test(n_songs=None):
@@ -227,8 +361,7 @@ def run_grid_search(n_songs=None):
     return max_results, max_params
     
 
-
-if __name__ == "__main__":
+def main():
     max_results, max_params = run_grid_search(n_songs=2)
     print("=============")
     print("max parameters:")
@@ -247,3 +380,20 @@ if __name__ == "__main__":
 
     plastic_beach = retrieve_song(1)["audio_path"]
     visualize_map_interactive(plastic_beach)
+
+if __name__ == "__main__":
+    #main()
+    pb_source = "tracks/audio/Gorillaz_PlasticBeachfeatMickJonesandPaulSimonon_pWIx2mz0cDg.flac"
+    from cm_helper import preprocess_audio
+    y, sr = preprocess_audio(pb_source)
+    y = np.clip(y, -1, 1)
+    y_compressed = simulate_microphone_from_source(y,sr)
+    import soundfile as sf
+    sf.write("pb_compressed.wav", y_compressed, sr)
+    
+
+
+
+
+
+
