@@ -14,6 +14,20 @@ from search import score_hashes
 from parameters import set_parameters, read_parameters
 from pathlib import Path
 
+# score_hashes_no_index
+from collections import defaultdict
+from DBcontrol import retrieve_hashes
+
+# measuring search time
+import time
+
+# GridViewer
+import pickle
+
+# logging errors in GridViewer
+import traceback
+import datetime
+
 #
 # 1 / 3: list samples to use to evaluate recognition performance
 #
@@ -199,7 +213,7 @@ def old_simulate_microphone_from_source(y, sr):
 
     return y_compressed
 
-def simulate_microphone_from_source(y, sr):
+def simulate_microphone_from_source(y, sr, drc_threshold=-40, drc_ratio=4.0, drc_attack=10, drc_release=50):
     """
     does two things:
 
@@ -207,77 +221,205 @@ def simulate_microphone_from_source(y, sr):
 
     2) Dynamic Range Compression using pydub
     """
-    D = librosa.stft(y)
-    H, P = librosa.decompose.hpss(D)
+    ##################################
+    # HPSS
+    # maintain percussion voices
+    # after filtering and dynamic
+    # range compression
+    # 
+    # issue: this may take too long to
+    # be worth it, but also drc takes
+    # a similar amount of time
+    ##################################
+    #D = librosa.stft(y)
+    #H, P = librosa.decompose.hpss(D)
+    #y_harmonic = librosa.istft(H)
+    ## should always pad with 256 zeros  (128 [...] 128)
+    #y_harmonic = np.pad(y_harmonic,
+                          #int(max(len(y) - len(y_harmonic), 0)/2))
+    #y_percussive = librosa.istft(P)
+    #y_percussive = np.pad(y_percussive,
+                          #int(max(len(y) - len(y_percussive), 0)/2))
 
-    y_harmonic = librosa.istft(H)
-    y_harmonic = np.pad(y_harmonic,
-                          int(max(len(y) - len(y_harmonic), 0)/2))
 
-    y_percussive = librosa.istft(P)
-    y_percussive = np.pad(y_percussive,
-                          int(max(len(y) - len(y_percussive), 0)/2))
+    ##################################
+    # convert to 16 bit integer
+    # (librosa to pydub)
+    ##################################
 
+    max_amplitude = np.iinfo(np.int16()).max
+    y_int16 = (y * max_amplitude).astype(np.int16)
 
     from pydub import AudioSegment
     from pydub.effects import compress_dynamic_range, low_pass_filter
-    max_amplitude = np.iinfo(np.int16()).max
-    y_int16 = (y * max_amplitude).astype(np.int16)
     y_audioseg = AudioSegment(
         data = y_int16.tobytes(),
         frame_rate = sr,
         sample_width = y_int16.dtype.itemsize,
         channels=1)
     
+    ##################################
+    # low pass filter: 6000 Hz cutoff
+    ##################################
+    # https://github.com/jiaaro/pydub/blob/master/pydub/effects.py#L222
     y_audioseg = low_pass_filter(y_audioseg, 6000)
 
-    threshold = -40  # default -20
-    ratio = 4.0
-    attack = 10
-    release = 50
+    ##################################
+    # dynamic range compression
+    ##################################
     # https://github.com/jiaaro/pydub/blob/master/pydub/effects.py#L116
     # https://en.wikipedia.org/wiki/Dynamic_range_compression
     y_audioseg = compress_dynamic_range(
         y_audioseg,
-        threshold=threshold,
-        ratio = ratio,
-        attack = attack,
-        release=release
+        threshold=drc_threshold,
+        ratio = drc_ratio,
+        attack = drc_attack,
+        release=drc_release
     )
-    # cutoff in Hz
-    # https://github.com/jiaaro/pydub/blob/master/pydub/effects.py#L222
 
+    ##################################
+    # convert back to 32 bit float
+    # (pydub to librosa)
+    ##################################
     y_compressed = (np.array(y_audioseg.get_array_of_samples()) / max_amplitude).astype(np.float32)
     #return np.clip(y_compressed + (y_percussive * 0.3), -1, 1)
-    return y_compressed + (y_percussive * 0.3)
+    #return y_compressed + (y_percussive * 0.3)
+    return y_compressed
 
 
-
-
-def sample_from_source_audios(tracks_dir = "./tracks", sr=11025):
+def sample_from_source_audios(n_songs: int = None, tracks_dir = "./tracks", sr=11025, noise_weight=0.5):
     """
+    This function attempts to simulate the act of recording many microphone samples
+    by doing some dynamic range compression and filtering of the source audio files
+
+    spectrogram looks similar to actual microphone recordings, primary trait 
+    of microphone recordings compared to the source audio is having a lower 
+    amplitude in the waveform on average (lower dynamic range)
+
     assumes that song_ids correspond to order that tracks appear in csv
 
     (first row => song_id = 1, ...)
     """
     samples = []
-    noise_weight = 0.4
     tracks_dir = Path(tracks_dir)
     df = pd.read_csv(tracks_dir/"tracks.csv")
     for idx, track in df.iterrows():
         song_id = idx + 1
+        if n_songs is not None:
+            if song_id > n_songs:
+                break
         sample_slices = create_samples(tracks_dir/track["audio_path"], sr, n_samples=5, n_seconds=5, seed=1)
-        sample_slices_noisy = [add_noise(audio, noise_weight) for audio in sample_slices]
+        sample_slices = [simulate_microphone_from_source(s, sr) for s in sample_slices]
+        sample_slices_with_noise = [add_noise(audio, noise_weight) for audio in sample_slices]
         samples.extend([
             {"song_id": song_id,
              "microphone": s[0],
              "microphone_with_noise": s[1]
-             } for s in zip(sample_slices, sample_slices_noisy)
+             } for s in zip(sample_slices, sample_slices_with_noise)
         ])
     return samples
 
+def recompute_hashes():
+    with connect() as con:
+        con.execute("DELETE FROM hashes")
+        con.commit()
+    from DBcontrol import compute_source_hashes
+    compute_source_hashes()
 
-def perform_recognition_test(n_songs=None):
+class GridViewer():
+    """
+    save summary statistics for each combination of parameters used in grid search
+
+    use for visualization of the four main audio fingerprint system parameters:
+    - *Reliability*: can the model actually recognize tracks?
+    - *Robustness*: how resistant is the model to noise?
+    - *Fingerprint size*: how much disk space is used?
+    - *Search speed*: how long does it take to search for a match?
+    """
+    def __init__(self, n_seconds_of_source_audio: float):
+        self.param_stats = []  # [ (params_1, stats_1), (params_2, stats_2), ... ]
+        self.errors = []  # dict keys: {"time_of_error", "all_params", "stacktrace"}
+        self.n_seconds_of_source_audio = n_seconds_of_source_audio
+        self.filename = "gridviewer.pkl"
+        # k = frozenset(d.items()) # idea: recursively use this to index based on paramset
+        # (immutable keys)
+
+    def summary_statistics(self, results, database_size):
+        """
+        summarize the results table to be stored with 
+        its corresponding parameters
+        """
+        results_df = pd.DataFrame(results)
+        return {
+            "proportion_correct": results_df["correct"].mean(),
+            "avg_search_time": results_df["search_time_with_index"].mean(),
+            "total_fingerprint_size_MB": database_size[0] + database_size[1],
+            "misc_info": {
+                "avg_search_time_without_index": results_df["search_time_without_index"].mean(),
+                "fingerprint_size_MB": (('hashes', database_size[0]), ('hash_index', database_size[1])),
+            }
+        }
+
+    def append(self, all_params, results, database_size: tuple[float,float]):
+        self.param_stats.append(
+            (
+                all_params, 
+                self.summary_statistics(results, database_size)
+            )
+        )
+
+    def log_exception(self, all_params, stacktrace):
+        """
+        obtain stacktrace string with `traceback.format_exc()` inside `except` clause.
+        """
+        time_of_error = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        self.errors.append({
+            "time_of_error": time_of_error,
+            "all_params": all_params,
+            "stacktrace": stacktrace
+            })
+
+    
+    @classmethod
+    def from_pickle_file(cls, filename="gridviewer.pkl"):
+        with open(filename, 'rb') as f:
+            return pickle.load(f)
+
+    def to_pickle_file(self, filename = None):
+        with open(
+            filename if filename is not None else self.filename, 
+            'wb') as f:
+            pickle.dump(self, f)
+
+
+
+def score_hashes_no_index(hashes: dict[int, tuple[int, int]]) -> tuple[list[tuple[int, int]], dict[int, set[int, int]]]:
+    """
+    same as `search.py:score_hashes()`, except does not use the `hashes` table index when retrieving matching hashes
+
+    used for computing search time metrics to show effectiveness of database index
+    """
+    con = connect()
+    cur = con.cursor()
+    time_pair_bins = defaultdict(set)
+    for address, (sampleT, _) in hashes.items():
+        # DBcontrol.py:retrieve_hashes(), without using index
+        cur.execute("SELECT hash_val, time_stamp, song_id FROM hashes NOT INDEXED WHERE hash_val = ?", (address,))
+        matching_hashes = cur.fetchall()
+        if matching_hashes is not None:
+            for _, sourceT, song_id in matching_hashes:
+                time_pair_bins[song_id].add((sourceT, sampleT))
+    scores = {}
+    for song_id, time_pair_bin in time_pair_bins.items():
+        deltaT_values = [sourceT - sampleT for (sourceT, sampleT) in time_pair_bin]
+        hist, bin_edges = np.histogram(deltaT_values, bins=max(len(np.unique(deltaT_values)), 10))
+        scores[song_id] = hist.max()
+    scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    con.close()
+    return scores, time_pair_bins
+
+
+def perform_recognition_test(n_songs=None, samples=None):
     """
     returns a tuple:
     `(n_correct / n_samples, performance results for each sample)`
@@ -288,20 +430,29 @@ def perform_recognition_test(n_songs=None):
     using `grid_search.py:augment_samples()`
     """
     #init_db()
+    #init_db(n_songs=n_songs)
+    if samples is None:
+        samples = augment_samples(sr=sr, noise_weight=0.3)
+
     sr = 11025
-    init_db(n_songs=n_songs)
     results = []
-    samples = augment_samples(sr=sr, noise_weight=0.3)
     for sample in samples:
         result = {}
         ground_truth_song_id = sample["song_id"]
 
         # peaks -> hashes
-        constellation_map = create_constellation_map(sample["microphone"], sr=sr)
+        constellation_map = create_constellation_map(sample["microphone_with_noise"], sr=sr)
         hashes = create_hashes(constellation_map, None, sr)
 
         # hashes -> metrics
+        start_time = time.time()
         scores, time_pair_bins = score_hashes(hashes)
+        search_time_with_index = time.time() - start_time
+
+        start_time = time.time()
+        score_hashes_no_index(hashes)
+        search_time_without_index = time.time() - start_time
+
         n_sample_hashes = len(hashes)
         n_potential_matches = min(len(scores), 5)
         metrics_per_potential_match = {}
@@ -318,51 +469,149 @@ def perform_recognition_test(n_songs=None):
             "prediction": scores[0][0],
             "correct": ground_truth_song_id == scores[0][0],
             "metrics": metrics_per_potential_match,
-            "microphone_audio": sample["microphone"]
+            "search_time_with_index": search_time_with_index,
+            "search_time_without_index": search_time_without_index,
+            "microphone_audio": sample["microphone_with_noise"]
         }
 
         results.append(result)
 
     return sum(r["correct"] for r in results) / len(samples), results
 
+def compute_fingerprint_size():
+    """
+    returns `(all_hashes_size_MB, hash_index_size_MB)`
+
+    https://sqlite.org/dbstat.html
+    """
+    with connect() as con:
+        cur = con.cursor()
+        cur.execute(
+            "SELECT name, SUM(pgsize) / (1024.0*1024.0) as size_in_mb "
+            "FROM dbstat "
+            "ORDER BY "
+                "CASE name "
+                "WHEN 'hashes' THEN 1 "
+                "ELSE 2 "
+                "END "
+            "GROUP BY name "
+            "HAVING name IN ('hashes', 'idx_hash_val')"
+        )
+        res = cur.fetchall()
+        size_hashes = res[0]["size_in_mb"]
+        if len(res) == 1 or res[1]["name"] != "idx_hash_val":
+            # idx_hash_val doesn't exist
+            size_hash_index = 0
+        else:
+            size_hash_index = res[1]["size_in_mb"]
+
+        return size_hashes, size_hash_index
+
+    
+
+def compute_total_length_of_source_audio():
+    """
+    number of seconds of source audio in database
+
+    can be used to normalize fingerprint size to Megabytes per second of audio
+    """
+    with connect() as con:
+        cur = con.cursor()
+        cur.execute(
+            "SELECT SUM(duration_s) as total_duration_s "
+            "FROM songs"
+        )
+        total_duration_s = cur.fetchone()[0]
+    
+    return total_duration_s
+
+
 def run_grid_search(n_songs=None):
     max_proportion_correct = 0
-    max_params = 0
-    max_results = {}
+    best_params = 0
+    best_results = {}
     proportion_correct = 0
     results = {}
+
+    # {0.1: (best_results, best_params), 0.2: (best_results, best_params), ...}
+    best_model_per_noise_weight = {}
 
     grid_cmws = [4,5,10]
     grid_cpb = [5,7]
     grid_bands = [[(0,20), (20, 40), (40,80), (80,160), (160, 320), (320,512)]]
 
-    for (
-        cm_window_size, candidates_per_band, bands
-        ) in list(product(grid_cmws, grid_cpb, grid_bands)):
-        parameters = {
-            "cm_window_size": cm_window_size,
-            "candidates_per_band": candidates_per_band,
-            "bands": bands
-            # ...
-        }
+    #grid_noise_weights = np.arange(0.1, 1, 0.1)
+    grid_noise_weights = [0.5]
 
-        # unspecified parameters are set to their defaults
-        #
-        # **dict notation:
-        # converts {"key1": value1, "key2": value2}
-        #          -> key1=value1, key2=value2
-        set_parameters(**parameters)
-        proportion_correct, results = perform_recognition_test(n_songs)
-        if proportion_correct > max_proportion_correct:
-            max_proportion_correct = proportion_correct
-            max_params = read_parameters("all_parameters")
-            max_results = results
+    grid_viewer = GridViewer(
+        n_seconds = compute_total_length_of_source_audio()
+        )
 
-    return max_results, max_params
+    ##################################
+    # grid search:
+    # try all combinations
+    # compute metrics for each
+    # run on Great Lakes HPC overnight
+    ##################################
+
+    for noise_weight in grid_noise_weights:
+        #noise_weight = grid_noise_weights[0]
+
+        samples = sample_from_source_audios(n_songs=n_songs, noise_weight=noise_weight)
+        init_db(n_songs=n_songs)
+
+
+        for (
+            cm_window_size, candidates_per_band, bands
+            ) in list(product(grid_cmws, grid_cpb, grid_bands)):
+            parameters = {
+                "cm_window_size": cm_window_size,
+                "candidates_per_band": candidates_per_band,
+                "bands": bands
+                # ...
+            }
+
+            # unspecified parameters are set to their defaults
+            #
+            # **dict notation:
+            # converts {"key1": value1, "key2": value2}
+            #          -> key1=value1, key2=value2
+            set_parameters(**parameters)
+            recompute_hashes()
+            database_size = compute_fingerprint_size()
+            # return length of time for searching
+            all_parameters = read_parameters("all_parameters")
+            try:
+                proportion_correct, results = perform_recognition_test(n_songs, samples)
+            except:
+                # there can be invalid combinations of parameters
+                #
+                # example: first band is 5 bins, cm_window_size is 5, and
+                # we attempt to extract candidates_per_band=40 peaks from
+                # the lower left spectrogram window
+                #
+                # if we run into an error, log exception traceback
+                grid_viewer.log_exception(
+                    all_parameters, 
+                    stacktrace=traceback.format_exc()
+                    )
+
+
+            if proportion_correct > max_proportion_correct:
+                max_proportion_correct = proportion_correct
+                best_params = all_parameters
+                best_results = results
+            grid_viewer.append(all_parameters, results, database_size)
+
+        return best_results, best_params
+
+    return best_model_per_noise_weight, grid_viewer
     
 
 def main():
-    max_results, max_params = run_grid_search(n_songs=2)
+    #max_results, max_params = run_grid_search(n_songs=4)
+    best_model_per_noise_weight, grid_viewer = run_grid_search(n_songs=4)
+    max_results, max_params = best_model_per_noise_weight[0.5]
     print("=============")
     print("max parameters:")
     print("=============")
@@ -376,20 +625,23 @@ def main():
     #print(max_results)
     max_results_df = pd.DataFrame(max_results)
     max_results_df.to_pickle("max_results.pkl")
-    print("saved results to pkl file")
+    print("saved best results to:         max_results.pkl")
+    print("saved best parameters to:      parameters.json")
+    print(f"saved grid viewer to:         {grid_viewer.filename}")
 
-    plastic_beach = retrieve_song(1)["audio_path"]
-    visualize_map_interactive(plastic_beach)
+    #plastic_beach = retrieve_song(1)["audio_path"]
+    #visualize_map_interactive(plastic_beach)
 
 if __name__ == "__main__":
-    #main()
-    pb_source = "tracks/audio/Gorillaz_PlasticBeachfeatMickJonesandPaulSimonon_pWIx2mz0cDg.flac"
-    from cm_helper import preprocess_audio
-    y, sr = preprocess_audio(pb_source)
-    y = np.clip(y, -1, 1)
-    y_compressed = simulate_microphone_from_source(y,sr)
-    import soundfile as sf
-    sf.write("pb_compressed.wav", y_compressed, sr)
+    main()
+    #pb_source = "tracks/audio/Gorillaz_PlasticBeachfeatMickJonesandPaulSimonon_pWIx2mz0cDg.flac"
+    #from cm_helper import preprocess_audio
+    #y, sr = preprocess_audio(pb_source)
+    #y = np.clip(y, -1, 1)
+    #y_compressed = simulate_microphone_from_source(y,sr)
+    #import soundfile as sf
+    #sf.write("pb_compressed.wav", y_compressed, sr)
+
     
 
 

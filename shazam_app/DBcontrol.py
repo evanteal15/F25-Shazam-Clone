@@ -75,14 +75,14 @@ def add_song(track_info: dict) -> str:
 def add_songs(audio_directory: str = "./tracks", n_songs: int = None, specific_songs: list[str] = None) -> None:
     
     tracks_info = load(audio_directory)
-    print(tracks_info)
+    #print(tracks_info)
 
     if n_songs is not None:
         tracks_info = tracks_info[:min(n_songs, len(tracks_info))]
 
-    print(tracks_info)
+    #print(tracks_info)
     for track_info in tracks_info:
-        print("Adding:", track_info["title"])
+        #print("Adding:", track_info["title"])
         if specific_songs is not None: 
             if track_info["title"] in specific_songs:
                 add_song(track_info)
@@ -198,9 +198,9 @@ def compute_source_hashes(song_ids: list[int] = None, resample_rate: None|int = 
         song_ids = retrieve_song_ids()
     
     for song_id in song_ids:
-        print(f"{song_id:03} ================================================")
+        #print(f"{song_id:03} ================================================")
         song = retrieve_song(song_id)
-        print(f"{song['title']} by {song['artist']}")
+        #print(f"{song['title']} by {song['artist']}")
         #duration_s = song["duration_s"]
         audio_path = song["audio_path"]
 

@@ -30,7 +30,7 @@
     ]
   },
   "hashing": {
-    "fanout_t": 200,
+    "fanout_t": 100,
     "fanout_f": 1500
   }
 }
