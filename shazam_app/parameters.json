@@ -1,7 +1,7 @@
 {
   "constellation_mapping": {
-    "cm_window_size": 10,
-    "candidates_per_band": 7,
+    "cm_window_size": 4,
+    "candidates_per_band": 5,
     "bands": [
       [
         0,
@@ -32,5 +32,9 @@
   "hashing": {
     "fanout_t": 100,
     "fanout_f": 1500
+  },
+  "database": {
+    "library_path": "sql/library.db",
+    "use_index": true
   }
 }

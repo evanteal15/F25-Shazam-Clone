@@ -4,7 +4,11 @@ from itertools import product
 import librosa
 
 from cm_visualizations import visualize_map_interactive
-from cm_helper import create_samples, add_noise
+
+# updated add_noise that uses signal-to-noise ratio
+#from cm_helper import create_samples, add_noise
+from cm_helper import create_samples
+
 from DBcontrol import init_db, connect, retrieve_song
 
 from const_map import create_constellation_map
@@ -23,6 +27,7 @@ import time
 
 # GridViewer
 import pickle
+import json
 
 # logging errors in GridViewer
 import traceback
@@ -44,7 +49,60 @@ microphone_sample_list = [
     for v in microphone_sample_list
     ]
 
-def augment_samples(sr, noise_weight):
+
+def add_noise(audio, snr_dB):
+    """
+    add noise to librosa audio with a desired 
+    signal-to-noise ratio (snr), measured in decibels.
+    ```
+    snr_dB = 10 log_10(P_signal / P_noise)
+
+    P_signal / P_noise = (A_signal / A_noise)**2
+
+    => snr_dB = 20 log_10(A_signal / A_noise)
+
+    => A_signal / A_noise = 10**(snr_dB / 20)
+
+    => A_noise = A_signal / 10**(SNR_dB / 20)
+    ```
+    
+    We use the root mean square (RMS) of the amplitude for the 
+    signal and noise. To achieve the desired SNR for our final 
+    audio, we calculate a weight to multiply the brownian noise by:
+
+    ```
+    A_noise_initial * noise_weight = A_noise
+
+    => noise_weight = A_noise / A_noise_initial
+
+    => noise_weight = rms_signal / (10**(snr_dB / 20)) / (rms_noise)
+
+    (avoid division by zero by adding 1e-10 to denominator)
+    ```
+    """
+
+    # brownian noise: x(n+1) = x(n) + w(n)
+    #                 w(n) = N(0,1)
+
+    def peak_normalize(x):
+        # Normalize the audio to be within the range [-1, 1]
+        return x / np.max(np.abs(x))
+
+    noise = np.random.normal(0, 1, audio.shape[0])
+    noise = np.cumsum(noise)
+    noise = peak_normalize(noise)
+
+    rms_signal = np.sqrt(np.mean(audio**2))
+    rms_noise = np.sqrt(np.mean(noise**2))
+
+    noise_weight = rms_signal / (10**(snr_dB / 20)) / (rms_noise + 1e-10)
+
+
+
+    audio_with_noise = (audio + noise*noise_weight)
+    return peak_normalize(audio_with_noise)
+
+def augment_samples(sr, snr):
     con = connect()
     cur = con.cursor()
     samples = []
@@ -65,7 +123,7 @@ def augment_samples(sr, noise_weight):
             raise ValueError(f'\'{sample["title"]}\' by \'{sample["artist"]}\' not found.\nSpelling of name/artist might be different from the spelling in tracks/audio/tracks.csv?')
         
         sample_slices = create_samples(sample["audio_path"], sr, n_samples = 20)
-        sample_slices_noisy = [add_noise(audio, noise_weight) for audio in sample_slices]
+        sample_slices_noisy = [add_noise(audio, snr) for audio in sample_slices]
         samples.extend([
             {"song_id": song_id,
              "microphone": s[0],
@@ -287,7 +345,7 @@ def simulate_microphone_from_source(y, sr, drc_threshold=-40, drc_ratio=4.0, drc
     return y_compressed
 
 
-def sample_from_source_audios(n_songs: int = None, tracks_dir = "./tracks", sr=11025, noise_weight=0.5):
+def sample_from_source_audios(n_songs: int = None, tracks_dir = "./tracks", sr=11025, snr=None):
     """
     This function attempts to simulate the act of recording many microphone samples
     by doing some dynamic range compression and filtering of the source audio files
@@ -310,7 +368,7 @@ def sample_from_source_audios(n_songs: int = None, tracks_dir = "./tracks", sr=1
                 break
         sample_slices = create_samples(tracks_dir/track["audio_path"], sr, n_samples=5, n_seconds=5, seed=1)
         sample_slices = [simulate_microphone_from_source(s, sr) for s in sample_slices]
-        sample_slices_with_noise = [add_noise(audio, noise_weight) for audio in sample_slices]
+        sample_slices_with_noise = [add_noise(audio, snr) for audio in sample_slices]
         samples.extend([
             {"song_id": song_id,
              "microphone": s[0],
@@ -337,7 +395,7 @@ class GridViewer():
     - *Search speed*: how long does it take to search for a match?
     """
     def __init__(self, n_seconds_of_source_audio: float):
-        self.param_stats = []  # [ (params_1, stats_1), (params_2, stats_2), ... ]
+        self.param_stats = defaultdict(list)  # {snr: [ (params_1, stats_1), (params_2, stats_2), ... ], ...}
         self.errors = []  # dict keys: {"time_of_error", "all_params", "stacktrace"}
         self.n_seconds_of_source_audio = n_seconds_of_source_audio
         self.filename = "gridviewer.pkl"
@@ -360,36 +418,45 @@ class GridViewer():
             }
         }
 
-    def append(self, all_params, results, database_size: tuple[float,float]):
-        self.param_stats.append(
+    def append(self, all_parameters, results, snr, database_size: tuple[float,float]):
+        self.param_stats[snr].append(
             (
-                all_params, 
+                all_parameters, 
                 self.summary_statistics(results, database_size)
             )
         )
 
-    def log_exception(self, all_params, stacktrace):
+    def log_exception(self, all_parameters, stacktrace, snr):
         """
         obtain stacktrace string with `traceback.format_exc()` inside `except` clause.
         """
         time_of_error = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         self.errors.append({
             "time_of_error": time_of_error,
-            "all_params": all_params,
-            "stacktrace": stacktrace
+            "all_params": all_parameters,
+            "stacktrace": stacktrace,
+            "snr": snr
             })
 
     
     @classmethod
-    def from_pickle_file(cls, filename="gridviewer.pkl"):
+    def from_pickle(cls, filename="gridviewer.pkl"):
         with open(filename, 'rb') as f:
             return pickle.load(f)
 
-    def to_pickle_file(self, filename = None):
+    def to_pickle(self, filename = None):
         with open(
             filename if filename is not None else self.filename, 
             'wb') as f:
             pickle.dump(self, f)
+
+    def to_json(self, json_filename="gridviewer.json"):
+        with open(json_filename, "w", encoding="utf-8") as f:
+            json.dump({
+                "param_stats": self.param_stats,
+                "errors": self.errors,
+                "n_seconds_of_source_audio": self.n_seconds_of_source_audio
+            })
 
 
 
@@ -431,8 +498,9 @@ def perform_recognition_test(n_songs=None, samples=None):
     """
     #init_db()
     #init_db(n_songs=n_songs)
-    if samples is None:
-        samples = augment_samples(sr=sr, noise_weight=0.3)
+    #if samples is None:
+        #snr = ???
+        #samples = augment_samples(sr=sr, snr=snr)
 
     sr = 11025
     results = []
@@ -489,21 +557,21 @@ def compute_fingerprint_size():
         cur.execute(
             "SELECT name, SUM(pgsize) / (1024.0*1024.0) as size_in_mb "
             "FROM dbstat "
+            "GROUP BY name "
+            "HAVING name IN ('hashes', 'idx_hash_val') "
             "ORDER BY "
                 "CASE name "
                 "WHEN 'hashes' THEN 1 "
                 "ELSE 2 "
-                "END "
-            "GROUP BY name "
-            "HAVING name IN ('hashes', 'idx_hash_val')"
+                "END"
         )
         res = cur.fetchall()
-        size_hashes = res[0]["size_in_mb"]
-        if len(res) == 1 or res[1]["name"] != "idx_hash_val":
+        size_hashes = res[0][1]
+        if len(res) == 1 or res[1][0] != "idx_hash_val":
             # idx_hash_val doesn't exist
             size_hash_index = 0
         else:
-            size_hash_index = res[1]["size_in_mb"]
+            size_hash_index = res[1][1]
 
         return size_hashes, size_hash_index
 
@@ -534,17 +602,19 @@ def run_grid_search(n_songs=None):
     results = {}
 
     # {0.1: (best_results, best_params), 0.2: (best_results, best_params), ...}
-    best_model_per_noise_weight = {}
+    best_model_per_snr = {}
 
     grid_cmws = [4,5,10]
     grid_cpb = [5,7]
     grid_bands = [[(0,20), (20, 40), (40,80), (80,160), (160, 320), (320,512)]]
 
     #grid_noise_weights = np.arange(0.1, 1, 0.1)
-    grid_noise_weights = [0.5]
+    grid_signal_to_noise_ratios = [-3, 0, 3, 6]
+
+    param_grid = list(product(grid_cmws, grid_cpb, grid_bands))
 
     grid_viewer = GridViewer(
-        n_seconds = compute_total_length_of_source_audio()
+        n_seconds_of_source_audio = compute_total_length_of_source_audio()
         )
 
     ##################################
@@ -554,16 +624,15 @@ def run_grid_search(n_songs=None):
     # run on Great Lakes HPC overnight
     ##################################
 
-    for noise_weight in grid_noise_weights:
-        #noise_weight = grid_noise_weights[0]
+    for i, snr in enumerate(grid_signal_to_noise_ratios):
+        print(f"snr={snr}: {i+1} / {len(grid_signal_to_noise_ratios)}")
 
-        samples = sample_from_source_audios(n_songs=n_songs, noise_weight=noise_weight)
+        samples = sample_from_source_audios(n_songs=n_songs, snr=snr)
         init_db(n_songs=n_songs)
 
 
-        for (
-            cm_window_size, candidates_per_band, bands
-            ) in list(product(grid_cmws, grid_cpb, grid_bands)):
+        for j, (cm_window_size, candidates_per_band, bands) in enumerate(param_grid):
+            print(f"\tparamset {j+1} / {len(param_grid)}")
             parameters = {
                 "cm_window_size": cm_window_size,
                 "candidates_per_band": candidates_per_band,
@@ -583,35 +652,36 @@ def run_grid_search(n_songs=None):
             all_parameters = read_parameters("all_parameters")
             try:
                 proportion_correct, results = perform_recognition_test(n_songs, samples)
+                if proportion_correct > max_proportion_correct:
+                    max_proportion_correct = proportion_correct
+                    best_params = all_parameters
+                    best_results = results
+                grid_viewer.append(all_parameters, results, snr, database_size)
             except:
                 # there can be invalid combinations of parameters
                 #
-                # example: first band is 5 bins, cm_window_size is 5, and
+                # example: first band is 5 freq bins tall, cm_window_size is 5, and
                 # we attempt to extract candidates_per_band=40 peaks from
-                # the lower left spectrogram window
+                # the bottom left spectrogram window
                 #
                 # if we run into an error, log exception traceback
+                print("\t exception occured")
                 grid_viewer.log_exception(
-                    all_parameters, 
-                    stacktrace=traceback.format_exc()
+                    all_parameters=all_parameters, 
+                    stacktrace=traceback.format_exc(),
+                    snr=snr
                     )
 
 
-            if proportion_correct > max_proportion_correct:
-                max_proportion_correct = proportion_correct
-                best_params = all_parameters
-                best_results = results
-            grid_viewer.append(all_parameters, results, database_size)
+        best_model_per_snr[snr] = (best_results, best_params)
 
-        return best_results, best_params
-
-    return best_model_per_noise_weight, grid_viewer
+    return best_model_per_snr, grid_viewer
     
 
 def main():
     #max_results, max_params = run_grid_search(n_songs=4)
     best_model_per_noise_weight, grid_viewer = run_grid_search(n_songs=4)
-    max_results, max_params = best_model_per_noise_weight[0.5]
+    max_results, max_params = best_model_per_noise_weight[6]
     print("=============")
     print("max parameters:")
     print("=============")
@@ -625,9 +695,12 @@ def main():
     #print(max_results)
     max_results_df = pd.DataFrame(max_results)
     max_results_df.to_pickle("max_results.pkl")
+    grid_viewer.to_json()
+    grid_viewer.to_pickle()
     print("saved best results to:         max_results.pkl")
     print("saved best parameters to:      parameters.json")
     print(f"saved grid viewer to:         {grid_viewer.filename}")
+    print("                           and gridviewer.json")
 
     #plastic_beach = retrieve_song(1)["audio_path"]
     #visualize_map_interactive(plastic_beach)

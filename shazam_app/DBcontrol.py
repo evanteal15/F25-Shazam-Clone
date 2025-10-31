@@ -10,11 +10,13 @@ from cm_helper import preprocess_audio
 from hasher import create_hashes
 from const_map import create_constellation_map
 
+from parameters import read_parameters
 
 
 library = "sql/library.db"
 
-def connect() -> tuple[sqlite3.Connection]:
+def connect() -> sqlite3.Connection:
+    library = read_parameters("database")
     con = sqlite3.connect(library)
     return con
 
