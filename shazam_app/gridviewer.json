@@ -1,0 +1,1995 @@
+{
+  "param_stats": {
+    "-3": [
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 4,
+            "candidates_per_band": 5,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 0.8,
+          "avg_search_time": 0.00771026611328125,
+          "total_fingerprint_size_MB": 28.09765625,
+          "misc_info": {
+            "avg_search_time_without_index": 23.838753116130828,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                15.05859375
+              ],
+              [
+                "hash_index",
+                13.0390625
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 4,
+            "candidates_per_band": 7,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 0.9,
+          "avg_search_time": 0.012715423107147216,
+          "total_fingerprint_size_MB": 47.078125,
+          "misc_info": {
+            "avg_search_time_without_index": 64.30633263587951,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                25.2109375
+              ],
+              [
+                "hash_index",
+                21.8671875
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 5,
+            "candidates_per_band": 5,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 0.8,
+          "avg_search_time": 0.004882526397705078,
+          "total_fingerprint_size_MB": 18.3125,
+          "misc_info": {
+            "avg_search_time_without_index": 10.18836088180542,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                9.8671875
+              ],
+              [
+                "hash_index",
+                8.4453125
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 5,
+            "candidates_per_band": 7,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 0.75,
+          "avg_search_time": 0.008329164981842042,
+          "total_fingerprint_size_MB": 31.37109375,
+          "misc_info": {
+            "avg_search_time_without_index": 29.75453487634659,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                16.83984375
+              ],
+              [
+                "hash_index",
+                14.53125
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 10,
+            "candidates_per_band": 5,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 0.65,
+          "avg_search_time": 0.0014879345893859864,
+          "total_fingerprint_size_MB": 4.8125,
+          "misc_info": {
+            "avg_search_time_without_index": 0.6149411201477051,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                2.5859375
+              ],
+              [
+                "hash_index",
+                2.2265625
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 10,
+            "candidates_per_band": 7,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 0.9,
+          "avg_search_time": 0.002417755126953125,
+          "total_fingerprint_size_MB": 8.4765625,
+          "misc_info": {
+            "avg_search_time_without_index": 2.009364938735962,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                4.55859375
+              ],
+              [
+                "hash_index",
+                3.91796875
+              ]
+            ]
+          }
+        }
+      ]
+    ],
+    "0": [
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 4,
+            "candidates_per_band": 5,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 0.8,
+          "avg_search_time": 0.01500701904296875,
+          "total_fingerprint_size_MB": 28.09765625,
+          "misc_info": {
+            "avg_search_time_without_index": 23.445319449901582,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                15.05859375
+              ],
+              [
+                "hash_index",
+                13.0390625
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 4,
+            "candidates_per_band": 7,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 0.8,
+          "avg_search_time": 0.014427113533020019,
+          "total_fingerprint_size_MB": 47.078125,
+          "misc_info": {
+            "avg_search_time_without_index": 65.8276053071022,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                25.2109375
+              ],
+              [
+                "hash_index",
+                21.8671875
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 5,
+            "candidates_per_band": 5,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 0.65,
+          "avg_search_time": 0.0050280094146728516,
+          "total_fingerprint_size_MB": 18.3125,
+          "misc_info": {
+            "avg_search_time_without_index": 10.119712615013123,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                9.8671875
+              ],
+              [
+                "hash_index",
+                8.4453125
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 5,
+            "candidates_per_band": 7,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 0.75,
+          "avg_search_time": 0.008501172065734863,
+          "total_fingerprint_size_MB": 31.37109375,
+          "misc_info": {
+            "avg_search_time_without_index": 29.33984590768814,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                16.83984375
+              ],
+              [
+                "hash_index",
+                14.53125
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 10,
+            "candidates_per_band": 5,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 0.75,
+          "avg_search_time": 0.0014087080955505372,
+          "total_fingerprint_size_MB": 4.8125,
+          "misc_info": {
+            "avg_search_time_without_index": 0.6068400859832763,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                2.5859375
+              ],
+              [
+                "hash_index",
+                2.2265625
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 10,
+            "candidates_per_band": 7,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 0.95,
+          "avg_search_time": 0.002342236042022705,
+          "total_fingerprint_size_MB": 8.4765625,
+          "misc_info": {
+            "avg_search_time_without_index": 1.9767768621444701,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                4.55859375
+              ],
+              [
+                "hash_index",
+                3.91796875
+              ]
+            ]
+          }
+        }
+      ]
+    ],
+    "3": [
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 4,
+            "candidates_per_band": 5,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 0.8,
+          "avg_search_time": 0.008395934104919433,
+          "total_fingerprint_size_MB": 28.09765625,
+          "misc_info": {
+            "avg_search_time_without_index": 23.451464879512788,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                15.05859375
+              ],
+              [
+                "hash_index",
+                13.0390625
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 4,
+            "candidates_per_band": 7,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 0.85,
+          "avg_search_time": 0.021464014053344728,
+          "total_fingerprint_size_MB": 47.078125,
+          "misc_info": {
+            "avg_search_time_without_index": 68.84652166366577,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                25.2109375
+              ],
+              [
+                "hash_index",
+                21.8671875
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 5,
+            "candidates_per_band": 5,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 0.8,
+          "avg_search_time": 0.006344461441040039,
+          "total_fingerprint_size_MB": 18.3125,
+          "misc_info": {
+            "avg_search_time_without_index": 10.93518956899643,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                9.8671875
+              ],
+              [
+                "hash_index",
+                8.4453125
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 5,
+            "candidates_per_band": 7,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 0.75,
+          "avg_search_time": 0.020243215560913085,
+          "total_fingerprint_size_MB": 31.37109375,
+          "misc_info": {
+            "avg_search_time_without_index": 31.72969582080841,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                16.83984375
+              ],
+              [
+                "hash_index",
+                14.53125
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 10,
+            "candidates_per_band": 5,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 0.7,
+          "avg_search_time": 0.0022622823715209963,
+          "total_fingerprint_size_MB": 4.8125,
+          "misc_info": {
+            "avg_search_time_without_index": 0.656907856464386,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                2.5859375
+              ],
+              [
+                "hash_index",
+                2.2265625
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 10,
+            "candidates_per_band": 7,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 1.0,
+          "avg_search_time": 0.005613148212432861,
+          "total_fingerprint_size_MB": 8.4765625,
+          "misc_info": {
+            "avg_search_time_without_index": 2.1626068592071532,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                4.55859375
+              ],
+              [
+                "hash_index",
+                3.91796875
+              ]
+            ]
+          }
+        }
+      ]
+    ],
+    "6": [
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 4,
+            "candidates_per_band": 5,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 0.85,
+          "avg_search_time": 0.018253886699676515,
+          "total_fingerprint_size_MB": 28.09765625,
+          "misc_info": {
+            "avg_search_time_without_index": 25.57153809070587,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                15.05859375
+              ],
+              [
+                "hash_index",
+                13.0390625
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 4,
+            "candidates_per_band": 7,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 0.8,
+          "avg_search_time": 0.021437883377075195,
+          "total_fingerprint_size_MB": 47.078125,
+          "misc_info": {
+            "avg_search_time_without_index": 71.40234018564225,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                25.2109375
+              ],
+              [
+                "hash_index",
+                21.8671875
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 5,
+            "candidates_per_band": 5,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 0.9,
+          "avg_search_time": 0.010052144527435303,
+          "total_fingerprint_size_MB": 18.3125,
+          "misc_info": {
+            "avg_search_time_without_index": 10.91536705493927,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                9.8671875
+              ],
+              [
+                "hash_index",
+                8.4453125
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 5,
+            "candidates_per_band": 7,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 0.7,
+          "avg_search_time": 0.01935046911239624,
+          "total_fingerprint_size_MB": 31.37109375,
+          "misc_info": {
+            "avg_search_time_without_index": 31.81504257917404,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                16.83984375
+              ],
+              [
+                "hash_index",
+                14.53125
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 10,
+            "candidates_per_band": 5,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 0.9,
+          "avg_search_time": 0.002146708965301514,
+          "total_fingerprint_size_MB": 4.8125,
+          "misc_info": {
+            "avg_search_time_without_index": 0.6438369154930115,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                2.5859375
+              ],
+              [
+                "hash_index",
+                2.2265625
+              ]
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "constellation_mapping": {
+            "cm_window_size": 10,
+            "candidates_per_band": 7,
+            "bands": [
+              [
+                0,
+                20
+              ],
+              [
+                20,
+                40
+              ],
+              [
+                40,
+                80
+              ],
+              [
+                80,
+                160
+              ],
+              [
+                160,
+                320
+              ],
+              [
+                320,
+                512
+              ]
+            ]
+          },
+          "hashing": {
+            "fanout_t": 100,
+            "fanout_f": 1500
+          },
+          "database": {
+            "library_path": "sql/library.db",
+            "use_index": true
+          }
+        },
+        {
+          "proportion_correct": 0.95,
+          "avg_search_time": 0.0037673115730285645,
+          "total_fingerprint_size_MB": 8.4765625,
+          "misc_info": {
+            "avg_search_time_without_index": 2.1642863750457764,
+            "fingerprint_size_MB": [
+              [
+                "hashes",
+                4.55859375
+              ],
+              [
+                "hash_index",
+                3.91796875
+              ]
+            ]
+          }
+        }
+      ]
+    ]
+  },
+  "errors": [
+    {
+      "time_of_error": "2025-10-31 21:06:58",
+      "all_params": {
+        "constellation_mapping": {
+          "cm_window_size": 4,
+          "candidates_per_band": 100,
+          "bands": [
+            [
+              0,
+              20
+            ],
+            [
+              20,
+              40
+            ],
+            [
+              40,
+              80
+            ],
+            [
+              80,
+              160
+            ],
+            [
+              160,
+              320
+            ],
+            [
+              320,
+              512
+            ]
+          ]
+        },
+        "hashing": {
+          "fanout_t": 100,
+          "fanout_f": 1500
+        },
+        "database": {
+          "library_path": "sql/library.db",
+          "use_index": true
+        }
+      },
+      "stacktrace": "Traceback (most recent call last):\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 658, in run_grid_search\n    #          -> key1=value1, key2=value2\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 385, in recompute_hashes\n    compute_source_hashes()\n    ~~~~~~~~~~~~~~~~~~~~~^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/DBcontrol.py\", line 216, in compute_source_hashes\n    constellation_map = create_constellation_map(audio, sr)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 120, in create_constellation_map\n    constellation_map = find_peaks(frequencies, times, magnitude)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 42, in find_peaks\n    return find_peaks_windowed(frequencies, times, magnitude, window_size, candidates_per_band)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 97, in find_peaks_windowed\n    raise e\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 91, in find_peaks_windowed\n    flat_indices = np.argpartition(sub_tile.ravel(), -candidates_per_band)[-candidates_per_band:]\n                   ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 962, in argpartition\n    return _wrapfunc(a, 'argpartition', kth, axis=axis, kind=kind, order=order)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 57, in _wrapfunc\n    return bound(*args, **kwds)\nValueError: kth(=-20) out of bounds (80)\n",
+      "snr": -3
+    },
+    {
+      "time_of_error": "2025-10-31 21:20:27",
+      "all_params": {
+        "constellation_mapping": {
+          "cm_window_size": 5,
+          "candidates_per_band": 100,
+          "bands": [
+            [
+              0,
+              20
+            ],
+            [
+              20,
+              40
+            ],
+            [
+              40,
+              80
+            ],
+            [
+              80,
+              160
+            ],
+            [
+              160,
+              320
+            ],
+            [
+              320,
+              512
+            ]
+          ]
+        },
+        "hashing": {
+          "fanout_t": 100,
+          "fanout_f": 1500
+        },
+        "database": {
+          "library_path": "sql/library.db",
+          "use_index": true
+        }
+      },
+      "stacktrace": "Traceback (most recent call last):\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 658, in run_grid_search\n    #          -> key1=value1, key2=value2\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 385, in recompute_hashes\n    compute_source_hashes()\n    ~~~~~~~~~~~~~~~~~~~~~^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/DBcontrol.py\", line 216, in compute_source_hashes\n    constellation_map = create_constellation_map(audio, sr)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 120, in create_constellation_map\n    constellation_map = find_peaks(frequencies, times, magnitude)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 42, in find_peaks\n    return find_peaks_windowed(frequencies, times, magnitude, window_size, candidates_per_band)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 97, in find_peaks_windowed\n    raise e\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 91, in find_peaks_windowed\n    flat_indices = np.argpartition(sub_tile.ravel(), -candidates_per_band)[-candidates_per_band:]\n                   ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 962, in argpartition\n    return _wrapfunc(a, 'argpartition', kth, axis=axis, kind=kind, order=order)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 57, in _wrapfunc\n    return bound(*args, **kwds)\nValueError: kth(=-60) out of bounds (40)\n",
+      "snr": -3
+    },
+    {
+      "time_of_error": "2025-10-31 21:21:24",
+      "all_params": {
+        "constellation_mapping": {
+          "cm_window_size": 10,
+          "candidates_per_band": 100,
+          "bands": [
+            [
+              0,
+              20
+            ],
+            [
+              20,
+              40
+            ],
+            [
+              40,
+              80
+            ],
+            [
+              80,
+              160
+            ],
+            [
+              160,
+              320
+            ],
+            [
+              320,
+              512
+            ]
+          ]
+        },
+        "hashing": {
+          "fanout_t": 100,
+          "fanout_f": 1500
+        },
+        "database": {
+          "library_path": "sql/library.db",
+          "use_index": true
+        }
+      },
+      "stacktrace": "Traceback (most recent call last):\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 658, in run_grid_search\n    #          -> key1=value1, key2=value2\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 385, in recompute_hashes\n    compute_source_hashes()\n    ~~~~~~~~~~~~~~~~~~~~~^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/DBcontrol.py\", line 216, in compute_source_hashes\n    constellation_map = create_constellation_map(audio, sr)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 120, in create_constellation_map\n    constellation_map = find_peaks(frequencies, times, magnitude)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 42, in find_peaks\n    return find_peaks_windowed(frequencies, times, magnitude, window_size, candidates_per_band)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 97, in find_peaks_windowed\n    raise e\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 91, in find_peaks_windowed\n    flat_indices = np.argpartition(sub_tile.ravel(), -candidates_per_band)[-candidates_per_band:]\n                   ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 962, in argpartition\n    return _wrapfunc(a, 'argpartition', kth, axis=axis, kind=kind, order=order)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 57, in _wrapfunc\n    return bound(*args, **kwds)\nValueError: kth(=-60) out of bounds (40)\n",
+      "snr": -3
+    },
+    {
+      "time_of_error": "2025-10-31 21:51:27",
+      "all_params": {
+        "constellation_mapping": {
+          "cm_window_size": 4,
+          "candidates_per_band": 100,
+          "bands": [
+            [
+              0,
+              20
+            ],
+            [
+              20,
+              40
+            ],
+            [
+              40,
+              80
+            ],
+            [
+              80,
+              160
+            ],
+            [
+              160,
+              320
+            ],
+            [
+              320,
+              512
+            ]
+          ]
+        },
+        "hashing": {
+          "fanout_t": 100,
+          "fanout_f": 1500
+        },
+        "database": {
+          "library_path": "sql/library.db",
+          "use_index": true
+        }
+      },
+      "stacktrace": "Traceback (most recent call last):\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 658, in run_grid_search\n    #          -> key1=value1, key2=value2\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 385, in recompute_hashes\n    compute_source_hashes()\n    ~~~~~~~~~~~~~~~~~~~~~^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/DBcontrol.py\", line 216, in compute_source_hashes\n    constellation_map = create_constellation_map(audio, sr)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 120, in create_constellation_map\n    constellation_map = find_peaks(frequencies, times, magnitude)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 42, in find_peaks\n    return find_peaks_windowed(frequencies, times, magnitude, window_size, candidates_per_band)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 97, in find_peaks_windowed\n    raise e\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 91, in find_peaks_windowed\n    flat_indices = np.argpartition(sub_tile.ravel(), -candidates_per_band)[-candidates_per_band:]\n                   ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 962, in argpartition\n    return _wrapfunc(a, 'argpartition', kth, axis=axis, kind=kind, order=order)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 57, in _wrapfunc\n    return bound(*args, **kwds)\nValueError: kth(=-20) out of bounds (80)\n",
+      "snr": 0
+    },
+    {
+      "time_of_error": "2025-10-31 22:04:47",
+      "all_params": {
+        "constellation_mapping": {
+          "cm_window_size": 5,
+          "candidates_per_band": 100,
+          "bands": [
+            [
+              0,
+              20
+            ],
+            [
+              20,
+              40
+            ],
+            [
+              40,
+              80
+            ],
+            [
+              80,
+              160
+            ],
+            [
+              160,
+              320
+            ],
+            [
+              320,
+              512
+            ]
+          ]
+        },
+        "hashing": {
+          "fanout_t": 100,
+          "fanout_f": 1500
+        },
+        "database": {
+          "library_path": "sql/library.db",
+          "use_index": true
+        }
+      },
+      "stacktrace": "Traceback (most recent call last):\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 658, in run_grid_search\n    #          -> key1=value1, key2=value2\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 385, in recompute_hashes\n    compute_source_hashes()\n    ~~~~~~~~~~~~~~~~~~~~~^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/DBcontrol.py\", line 216, in compute_source_hashes\n    constellation_map = create_constellation_map(audio, sr)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 120, in create_constellation_map\n    constellation_map = find_peaks(frequencies, times, magnitude)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 42, in find_peaks\n    return find_peaks_windowed(frequencies, times, magnitude, window_size, candidates_per_band)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 97, in find_peaks_windowed\n    raise e\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 91, in find_peaks_windowed\n    flat_indices = np.argpartition(sub_tile.ravel(), -candidates_per_band)[-candidates_per_band:]\n                   ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 962, in argpartition\n    return _wrapfunc(a, 'argpartition', kth, axis=axis, kind=kind, order=order)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 57, in _wrapfunc\n    return bound(*args, **kwds)\nValueError: kth(=-60) out of bounds (40)\n",
+      "snr": 0
+    },
+    {
+      "time_of_error": "2025-10-31 22:05:43",
+      "all_params": {
+        "constellation_mapping": {
+          "cm_window_size": 10,
+          "candidates_per_band": 100,
+          "bands": [
+            [
+              0,
+              20
+            ],
+            [
+              20,
+              40
+            ],
+            [
+              40,
+              80
+            ],
+            [
+              80,
+              160
+            ],
+            [
+              160,
+              320
+            ],
+            [
+              320,
+              512
+            ]
+          ]
+        },
+        "hashing": {
+          "fanout_t": 100,
+          "fanout_f": 1500
+        },
+        "database": {
+          "library_path": "sql/library.db",
+          "use_index": true
+        }
+      },
+      "stacktrace": "Traceback (most recent call last):\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 658, in run_grid_search\n    #          -> key1=value1, key2=value2\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 385, in recompute_hashes\n    compute_source_hashes()\n    ~~~~~~~~~~~~~~~~~~~~~^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/DBcontrol.py\", line 216, in compute_source_hashes\n    constellation_map = create_constellation_map(audio, sr)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 120, in create_constellation_map\n    constellation_map = find_peaks(frequencies, times, magnitude)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 42, in find_peaks\n    return find_peaks_windowed(frequencies, times, magnitude, window_size, candidates_per_band)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 97, in find_peaks_windowed\n    raise e\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 91, in find_peaks_windowed\n    flat_indices = np.argpartition(sub_tile.ravel(), -candidates_per_band)[-candidates_per_band:]\n                   ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 962, in argpartition\n    return _wrapfunc(a, 'argpartition', kth, axis=axis, kind=kind, order=order)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 57, in _wrapfunc\n    return bound(*args, **kwds)\nValueError: kth(=-60) out of bounds (40)\n",
+      "snr": 0
+    },
+    {
+      "time_of_error": "2025-10-31 22:36:47",
+      "all_params": {
+        "constellation_mapping": {
+          "cm_window_size": 4,
+          "candidates_per_band": 100,
+          "bands": [
+            [
+              0,
+              20
+            ],
+            [
+              20,
+              40
+            ],
+            [
+              40,
+              80
+            ],
+            [
+              80,
+              160
+            ],
+            [
+              160,
+              320
+            ],
+            [
+              320,
+              512
+            ]
+          ]
+        },
+        "hashing": {
+          "fanout_t": 100,
+          "fanout_f": 1500
+        },
+        "database": {
+          "library_path": "sql/library.db",
+          "use_index": true
+        }
+      },
+      "stacktrace": "Traceback (most recent call last):\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 658, in run_grid_search\n    #          -> key1=value1, key2=value2\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 385, in recompute_hashes\n    compute_source_hashes()\n    ~~~~~~~~~~~~~~~~~~~~~^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/DBcontrol.py\", line 216, in compute_source_hashes\n    constellation_map = create_constellation_map(audio, sr)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 120, in create_constellation_map\n    constellation_map = find_peaks(frequencies, times, magnitude)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 42, in find_peaks\n    return find_peaks_windowed(frequencies, times, magnitude, window_size, candidates_per_band)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 97, in find_peaks_windowed\n    raise e\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 91, in find_peaks_windowed\n    flat_indices = np.argpartition(sub_tile.ravel(), -candidates_per_band)[-candidates_per_band:]\n                   ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 962, in argpartition\n    return _wrapfunc(a, 'argpartition', kth, axis=axis, kind=kind, order=order)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 57, in _wrapfunc\n    return bound(*args, **kwds)\nValueError: kth(=-20) out of bounds (80)\n",
+      "snr": 3
+    },
+    {
+      "time_of_error": "2025-10-31 22:51:12",
+      "all_params": {
+        "constellation_mapping": {
+          "cm_window_size": 5,
+          "candidates_per_band": 100,
+          "bands": [
+            [
+              0,
+              20
+            ],
+            [
+              20,
+              40
+            ],
+            [
+              40,
+              80
+            ],
+            [
+              80,
+              160
+            ],
+            [
+              160,
+              320
+            ],
+            [
+              320,
+              512
+            ]
+          ]
+        },
+        "hashing": {
+          "fanout_t": 100,
+          "fanout_f": 1500
+        },
+        "database": {
+          "library_path": "sql/library.db",
+          "use_index": true
+        }
+      },
+      "stacktrace": "Traceback (most recent call last):\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 658, in run_grid_search\n    #          -> key1=value1, key2=value2\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 385, in recompute_hashes\n    compute_source_hashes()\n    ~~~~~~~~~~~~~~~~~~~~~^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/DBcontrol.py\", line 216, in compute_source_hashes\n    constellation_map = create_constellation_map(audio, sr)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 120, in create_constellation_map\n    constellation_map = find_peaks(frequencies, times, magnitude)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 42, in find_peaks\n    return find_peaks_windowed(frequencies, times, magnitude, window_size, candidates_per_band)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 97, in find_peaks_windowed\n    raise e\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 91, in find_peaks_windowed\n    flat_indices = np.argpartition(sub_tile.ravel(), -candidates_per_band)[-candidates_per_band:]\n                   ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 962, in argpartition\n    return _wrapfunc(a, 'argpartition', kth, axis=axis, kind=kind, order=order)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 57, in _wrapfunc\n    return bound(*args, **kwds)\nValueError: kth(=-60) out of bounds (40)\n",
+      "snr": 3
+    },
+    {
+      "time_of_error": "2025-10-31 22:52:14",
+      "all_params": {
+        "constellation_mapping": {
+          "cm_window_size": 10,
+          "candidates_per_band": 100,
+          "bands": [
+            [
+              0,
+              20
+            ],
+            [
+              20,
+              40
+            ],
+            [
+              40,
+              80
+            ],
+            [
+              80,
+              160
+            ],
+            [
+              160,
+              320
+            ],
+            [
+              320,
+              512
+            ]
+          ]
+        },
+        "hashing": {
+          "fanout_t": 100,
+          "fanout_f": 1500
+        },
+        "database": {
+          "library_path": "sql/library.db",
+          "use_index": true
+        }
+      },
+      "stacktrace": "Traceback (most recent call last):\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 658, in run_grid_search\n    #          -> key1=value1, key2=value2\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 385, in recompute_hashes\n    compute_source_hashes()\n    ~~~~~~~~~~~~~~~~~~~~~^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/DBcontrol.py\", line 216, in compute_source_hashes\n    constellation_map = create_constellation_map(audio, sr)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 120, in create_constellation_map\n    constellation_map = find_peaks(frequencies, times, magnitude)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 42, in find_peaks\n    return find_peaks_windowed(frequencies, times, magnitude, window_size, candidates_per_band)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 97, in find_peaks_windowed\n    raise e\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 91, in find_peaks_windowed\n    flat_indices = np.argpartition(sub_tile.ravel(), -candidates_per_band)[-candidates_per_band:]\n                   ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 962, in argpartition\n    return _wrapfunc(a, 'argpartition', kth, axis=axis, kind=kind, order=order)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 57, in _wrapfunc\n    return bound(*args, **kwds)\nValueError: kth(=-60) out of bounds (40)\n",
+      "snr": 3
+    },
+    {
+      "time_of_error": "2025-10-31 23:24:54",
+      "all_params": {
+        "constellation_mapping": {
+          "cm_window_size": 4,
+          "candidates_per_band": 100,
+          "bands": [
+            [
+              0,
+              20
+            ],
+            [
+              20,
+              40
+            ],
+            [
+              40,
+              80
+            ],
+            [
+              80,
+              160
+            ],
+            [
+              160,
+              320
+            ],
+            [
+              320,
+              512
+            ]
+          ]
+        },
+        "hashing": {
+          "fanout_t": 100,
+          "fanout_f": 1500
+        },
+        "database": {
+          "library_path": "sql/library.db",
+          "use_index": true
+        }
+      },
+      "stacktrace": "Traceback (most recent call last):\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 658, in run_grid_search\n    #          -> key1=value1, key2=value2\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 385, in recompute_hashes\n    compute_source_hashes()\n    ~~~~~~~~~~~~~~~~~~~~~^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/DBcontrol.py\", line 216, in compute_source_hashes\n    constellation_map = create_constellation_map(audio, sr)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 120, in create_constellation_map\n    constellation_map = find_peaks(frequencies, times, magnitude)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 42, in find_peaks\n    return find_peaks_windowed(frequencies, times, magnitude, window_size, candidates_per_band)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 97, in find_peaks_windowed\n    raise e\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 91, in find_peaks_windowed\n    flat_indices = np.argpartition(sub_tile.ravel(), -candidates_per_band)[-candidates_per_band:]\n                   ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 962, in argpartition\n    return _wrapfunc(a, 'argpartition', kth, axis=axis, kind=kind, order=order)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 57, in _wrapfunc\n    return bound(*args, **kwds)\nValueError: kth(=-20) out of bounds (80)\n",
+      "snr": 6
+    },
+    {
+      "time_of_error": "2025-10-31 23:39:20",
+      "all_params": {
+        "constellation_mapping": {
+          "cm_window_size": 5,
+          "candidates_per_band": 100,
+          "bands": [
+            [
+              0,
+              20
+            ],
+            [
+              20,
+              40
+            ],
+            [
+              40,
+              80
+            ],
+            [
+              80,
+              160
+            ],
+            [
+              160,
+              320
+            ],
+            [
+              320,
+              512
+            ]
+          ]
+        },
+        "hashing": {
+          "fanout_t": 100,
+          "fanout_f": 1500
+        },
+        "database": {
+          "library_path": "sql/library.db",
+          "use_index": true
+        }
+      },
+      "stacktrace": "Traceback (most recent call last):\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 658, in run_grid_search\n    #          -> key1=value1, key2=value2\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 385, in recompute_hashes\n    compute_source_hashes()\n    ~~~~~~~~~~~~~~~~~~~~~^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/DBcontrol.py\", line 216, in compute_source_hashes\n    constellation_map = create_constellation_map(audio, sr)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 120, in create_constellation_map\n    constellation_map = find_peaks(frequencies, times, magnitude)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 42, in find_peaks\n    return find_peaks_windowed(frequencies, times, magnitude, window_size, candidates_per_band)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 97, in find_peaks_windowed\n    raise e\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 91, in find_peaks_windowed\n    flat_indices = np.argpartition(sub_tile.ravel(), -candidates_per_band)[-candidates_per_band:]\n                   ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 962, in argpartition\n    return _wrapfunc(a, 'argpartition', kth, axis=axis, kind=kind, order=order)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 57, in _wrapfunc\n    return bound(*args, **kwds)\nValueError: kth(=-60) out of bounds (40)\n",
+      "snr": 6
+    },
+    {
+      "time_of_error": "2025-10-31 23:40:21",
+      "all_params": {
+        "constellation_mapping": {
+          "cm_window_size": 10,
+          "candidates_per_band": 100,
+          "bands": [
+            [
+              0,
+              20
+            ],
+            [
+              20,
+              40
+            ],
+            [
+              40,
+              80
+            ],
+            [
+              80,
+              160
+            ],
+            [
+              160,
+              320
+            ],
+            [
+              320,
+              512
+            ]
+          ]
+        },
+        "hashing": {
+          "fanout_t": 100,
+          "fanout_f": 1500
+        },
+        "database": {
+          "library_path": "sql/library.db",
+          "use_index": true
+        }
+      },
+      "stacktrace": "Traceback (most recent call last):\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 658, in run_grid_search\n    #          -> key1=value1, key2=value2\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/./grid_search.py\", line 385, in recompute_hashes\n    compute_source_hashes()\n    ~~~~~~~~~~~~~~~~~~~~~^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/DBcontrol.py\", line 216, in compute_source_hashes\n    constellation_map = create_constellation_map(audio, sr)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 120, in create_constellation_map\n    constellation_map = find_peaks(frequencies, times, magnitude)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 42, in find_peaks\n    return find_peaks_windowed(frequencies, times, magnitude, window_size, candidates_per_band)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 97, in find_peaks_windowed\n    raise e\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/const_map.py\", line 91, in find_peaks_windowed\n    flat_indices = np.argpartition(sub_tile.ravel(), -candidates_per_band)[-candidates_per_band:]\n                   ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 962, in argpartition\n    return _wrapfunc(a, 'argpartition', kth, axis=axis, kind=kind, order=order)\n  File \"/Users/dennisfj/Michigan/shazam/F25-Shazam-Clone/shazam_app/env/lib/python3.13/site-packages/numpy/_core/fromnumeric.py\", line 57, in _wrapfunc\n    return bound(*args, **kwds)\nValueError: kth(=-60) out of bounds (40)\n",
+      "snr": 6
+    }
+  ],
+  "n_seconds_of_source_audio": 839.8889795918367
+}

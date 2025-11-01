@@ -9,7 +9,7 @@ from cm_visualizations import visualize_map_interactive
 #from cm_helper import create_samples, add_noise
 from cm_helper import create_samples
 
-from DBcontrol import init_db, connect, retrieve_song
+from DBcontrol import init_db, connect, retrieve_song, create_tables, add_songs
 
 from const_map import create_constellation_map
 from hasher import create_hashes
@@ -354,6 +354,16 @@ def sample_from_source_audios(n_songs: int = None, tracks_dir = "./tracks", sr=1
     of microphone recordings compared to the source audio is having a lower 
     amplitude in the waveform on average (lower dynamic range)
 
+    computes the same samples each time since random sampling uses `seed=1`, => reproducable samples
+
+    ## Arguments:
+    - `n_songs`: optionally take the top n songs from the top of the `tracks_dir` dataset.
+        Default is to use all songs
+    - `snr`: optionally specify a signal-to-noise ratio for adding noise. 
+        Default is to not add noise. 
+        Can be done afterwards to save computation on recreating samples: 
+        `sample_slices = [add_noise(audio, snr) for audio in sample_slices]`
+
     assumes that song_ids correspond to order that tracks appear in csv
 
     (first row => song_id = 1, ...)
@@ -368,12 +378,14 @@ def sample_from_source_audios(n_songs: int = None, tracks_dir = "./tracks", sr=1
                 break
         sample_slices = create_samples(tracks_dir/track["audio_path"], sr, n_samples=5, n_seconds=5, seed=1)
         sample_slices = [simulate_microphone_from_source(s, sr) for s in sample_slices]
-        sample_slices_with_noise = [add_noise(audio, snr) for audio in sample_slices]
+        if snr is not None:
+            sample_slices = [add_noise(audio, snr) for audio in sample_slices]
         samples.extend([
             {"song_id": song_id,
-             "microphone": s[0],
-             "microphone_with_noise": s[1]
-             } for s in zip(sample_slices, sample_slices_with_noise)
+             "microphone": s
+            } for s in sample_slices
+             #"microphone_with_noise": s[1]
+             #} for s in zip(sample_slices, sample_slices_with_noise)
         ])
     return samples
 
@@ -425,6 +437,38 @@ class GridViewer():
                 self.summary_statistics(results, database_size)
             )
         )
+    
+    def to_dataframe(self):
+        df_rows = []
+        for snr in self.param_stats.keys():
+            for entry in self.param_stats[snr]:
+                row = {}
+                row["signal_to_noise_ratio_dB"] = snr
+                row["proportion_correct"] = entry[1]["proportion_correct"]
+                row["avg_search_time"] = entry[1]["avg_search_time"]
+                row["total_fingerprint_size_MB"] = entry[1]["total_fingerprint_size_MB"]
+                row["cm_window_size"] = entry[0]["constellation_mapping"]["cm_window_size"]
+                row["candidates_per_band"] = entry[0]["constellation_mapping"]["candidates_per_band"]
+                row["bands"] = entry[0]["constellation_mapping"]["bands"]
+                row["fanout_t"] = entry[0]["hashing"]["fanout_t"]
+                row["fanout_f"] = entry[0]["hashing"]["fanout_f"]
+                row["avg_search_time_without_index"] = entry[1]["misc_info"]["avg_search_time_without_index"]
+                row["fingerprint_size_MB"] = entry[1]["misc_info"]["fingerprint_size_MB"]
+                df_rows.append(row)
+
+        return pd.DataFrame(df_rows)
+    
+    def errors_to_dataframe(self):
+        errors_df = pd.DataFrame(self.errors)
+        errors_df["exception"] = errors_df["stacktrace"].apply(lambda line: line.splitlines()[-1:][0])
+
+        for cm_param in ["cm_window_size", "candidates_per_band", "bands"]:
+            errors_df[cm_param] = errors_df["all_params"].apply(lambda row: row["constellation_mapping"][cm_param])
+
+        errors_df["fanout_t"] = errors_df["all_params"].apply(lambda row: row["hashing"]["fanout_t"])
+        errors_df["fanout_f"] = errors_df["all_params"].apply(lambda row: row["hashing"]["fanout_f"])
+
+        return errors_df.drop("all_params", axis=1)
 
     def log_exception(self, all_parameters, stacktrace, snr):
         """
@@ -451,12 +495,15 @@ class GridViewer():
             pickle.dump(self, f)
 
     def to_json(self, json_filename="gridviewer.json"):
-        with open(json_filename, "w", encoding="utf-8") as f:
-            json.dump({
-                "param_stats": self.param_stats,
-                "errors": self.errors,
-                "n_seconds_of_source_audio": self.n_seconds_of_source_audio
-            })
+        try:
+            with open(json_filename, "w", encoding="utf-8") as f:
+                json.dump({
+                    "param_stats": self.param_stats,
+                    "errors": self.errors,
+                    "n_seconds_of_source_audio": self.n_seconds_of_source_audio
+                }, f, indent=2)
+        except:
+            pass
 
 
 
@@ -486,15 +533,20 @@ def score_hashes_no_index(hashes: dict[int, tuple[int, int]]) -> tuple[list[tupl
     return scores, time_pair_bins
 
 
-def perform_recognition_test(n_songs=None, samples=None):
+def perform_recognition_test(n_songs=None, samples=None, perform_no_index_searches=False, store_microphone_samples=False):
     """
     returns a tuple:
     `(n_correct / n_samples, performance results for each sample)`
 
     first value is the proportion of correct recognitions
 
-    samples specified based on slicing of samples in `microphone_sample_list`
-    using `grid_search.py:augment_samples()`
+    samples can be:
+    - specified based on slicing of samples in `microphone_sample_list` using `grid_search.py:augment_samples()`
+    - created using `grid_search.py:sample_from_source_audios()`, which simulates the dynamic range compression common in microphone recordings
+
+    ## Arguments
+    - `perform_no_index_searches`: track metrics for retrieving hashes without using the database's index. Takes a long time, only useful for giving an intuition of the trade off between index storage size and search speed.
+    - `store_microphone_samples`: include in the performance results the actual samples used for recognition. Useful for perceptually evaluating how the altered samples sound, but takes a lot of storage. Can be recomputed from the sample generating method anyways.
     """
     #init_db()
     #init_db(n_songs=n_songs)
@@ -509,7 +561,7 @@ def perform_recognition_test(n_songs=None, samples=None):
         ground_truth_song_id = sample["song_id"]
 
         # peaks -> hashes
-        constellation_map = create_constellation_map(sample["microphone_with_noise"], sr=sr)
+        constellation_map = create_constellation_map(sample["microphone"], sr=sr)
         hashes = create_hashes(constellation_map, None, sr)
 
         # hashes -> metrics
@@ -517,9 +569,12 @@ def perform_recognition_test(n_songs=None, samples=None):
         scores, time_pair_bins = score_hashes(hashes)
         search_time_with_index = time.time() - start_time
 
-        start_time = time.time()
-        score_hashes_no_index(hashes)
-        search_time_without_index = time.time() - start_time
+        if perform_no_index_searches:
+            start_time = time.time()
+            score_hashes_no_index(hashes)
+            search_time_without_index = time.time() - start_time
+        else:
+            search_time_without_index = None
 
         n_sample_hashes = len(hashes)
         n_potential_matches = min(len(scores), 5)
@@ -539,8 +594,16 @@ def perform_recognition_test(n_songs=None, samples=None):
             "metrics": metrics_per_potential_match,
             "search_time_with_index": search_time_with_index,
             "search_time_without_index": search_time_without_index,
-            "microphone_audio": sample["microphone_with_noise"]
+            "microphone_audio": None,
         }
+        # optionally keep the sample used 
+        # (for perceptual evaluation, 
+        # takes up lots of storage, 
+        # can easily be recomputed later 
+        # since sample generation is 
+        # seeded and you can pass in desired SNR)
+        if store_microphone_samples:
+            result["microphone_audio"] = sample["microphone"]
 
         results.append(result)
 
@@ -605,11 +668,14 @@ def run_grid_search(n_songs=None):
     best_model_per_snr = {}
 
     grid_cmws = [4,5,10]
-    grid_cpb = [5,7]
+    grid_cpb = [5,7, 100]
+    #grid_cmws = [10]
+    #grid_cpb = [5]
     grid_bands = [[(0,20), (20, 40), (40,80), (80,160), (160, 320), (320,512)]]
 
     #grid_noise_weights = np.arange(0.1, 1, 0.1)
     grid_signal_to_noise_ratios = [-3, 0, 3, 6]
+    #grid_signal_to_noise_ratios = [3, 6]
 
     param_grid = list(product(grid_cmws, grid_cpb, grid_bands))
 
@@ -624,12 +690,17 @@ def run_grid_search(n_songs=None):
     # run on Great Lakes HPC overnight
     ##################################
 
+    set_parameters()
+    #create_tables()
+    #add_songs("./tracks", n_songs)
+    init_db(n_songs=n_songs)
+
+    samples = sample_from_source_audios(n_songs=n_songs)
+
     for i, snr in enumerate(grid_signal_to_noise_ratios):
         print(f"snr={snr}: {i+1} / {len(grid_signal_to_noise_ratios)}")
 
-        samples = sample_from_source_audios(n_songs=n_songs, snr=snr)
-        init_db(n_songs=n_songs)
-
+        samples_with_noise = [add_noise(audio, snr) for audio in samples]
 
         for j, (cm_window_size, candidates_per_band, bands) in enumerate(param_grid):
             print(f"\tparamset {j+1} / {len(param_grid)}")
@@ -646,12 +717,11 @@ def run_grid_search(n_songs=None):
             # converts {"key1": value1, "key2": value2}
             #          -> key1=value1, key2=value2
             set_parameters(**parameters)
-            recompute_hashes()
-            database_size = compute_fingerprint_size()
-            # return length of time for searching
             all_parameters = read_parameters("all_parameters")
             try:
-                proportion_correct, results = perform_recognition_test(n_songs, samples)
+                recompute_hashes()
+                database_size = compute_fingerprint_size()
+                proportion_correct, results = perform_recognition_test(n_songs, samples_with_noise)
                 if proportion_correct > max_proportion_correct:
                     max_proportion_correct = proportion_correct
                     best_params = all_parameters
@@ -666,9 +736,10 @@ def run_grid_search(n_songs=None):
                 #
                 # if we run into an error, log exception traceback
                 print("\t exception occured")
+                stacktrace=traceback.format_exc()
                 grid_viewer.log_exception(
                     all_parameters=all_parameters, 
-                    stacktrace=traceback.format_exc(),
+                    stacktrace=stacktrace,
                     snr=snr
                     )
 
@@ -699,8 +770,8 @@ def main():
     grid_viewer.to_pickle()
     print("saved best results to:         max_results.pkl")
     print("saved best parameters to:      parameters.json")
-    print(f"saved grid viewer to:         {grid_viewer.filename}")
-    print("                           and gridviewer.json")
+    print(f"saved grid viewer to:          {grid_viewer.filename}")
+    print("                               and gridviewer.json")
 
     #plastic_beach = retrieve_song(1)["audio_path"]
     #visualize_map_interactive(plastic_beach)
