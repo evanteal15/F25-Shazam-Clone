@@ -3,11 +3,13 @@ import pandas as pd
 from itertools import product
 import librosa
 
+import os
+
 from cm_visualizations import visualize_map_interactive
 
 # updated add_noise that uses signal-to-noise ratio
 #from cm_helper import create_samples, add_noise
-from cm_helper import create_samples
+from cm_helper import create_samples, preprocess_audio
 
 from DBcontrol import init_db, connect, retrieve_song, create_tables, add_songs
 
@@ -18,6 +20,10 @@ from search import score_hashes
 from parameters import set_parameters, read_parameters
 from pathlib import Path
 
+# microphone simulation
+from pydub import AudioSegment
+from pydub.effects import compress_dynamic_range, low_pass_filter, high_pass_filter
+
 # score_hashes_no_index
 from collections import defaultdict
 from DBcontrol import retrieve_hashes
@@ -26,6 +32,7 @@ from DBcontrol import retrieve_hashes
 import time
 
 # GridViewer
+import sqlite3
 import pickle
 import json
 
@@ -36,6 +43,7 @@ import datetime
 #
 # 1 / 3: list samples to use to evaluate recognition performance
 #
+# https://marketplace.visualstudio.com/items?itemName=sukumo28.wav-preview
 
 microphone_sample_list = [
     ("Plastic Beach (feat. Mick Jones and Paul Simonon)", "Gorillaz", "audio_samples/plastic_beach_microphone_recording.wav"),
@@ -50,7 +58,7 @@ microphone_sample_list = [
     ]
 
 
-def add_noise(audio, snr_dB):
+def add_noise(audio, snr_dB: float):
     """
     add noise to librosa audio with a desired 
     signal-to-noise ratio (snr), measured in decibels.
@@ -88,16 +96,28 @@ def add_noise(audio, snr_dB):
         # Normalize the audio to be within the range [-1, 1]
         return x / np.max(np.abs(x))
 
-    noise = np.random.normal(0, 1, audio.shape[0])
-    noise = np.cumsum(noise)
-    noise = peak_normalize(noise)
+    static = np.random.normal(0, 1, audio.shape[0])
+    static = np.cumsum(static)
+    static = peak_normalize(static)
+    y_cafe_ambience, sr_cafe = preprocess_audio("./audio_samples/cafe_ambience.flac")
+    if len(y_cafe_ambience) < audio.shape[0]:
+        y_cafe_ambience = np.concatenate(
+            [y_cafe_ambience for i in range(int(np.ceil(len(y_cafe_ambience) / audio.shape[0])))]
+        )
+    if len(y_cafe_ambience) > audio.shape[0]:
+        y_cafe_ambience = y_cafe_ambience[:audio.shape[0]]
+
+            
+    # 60/40 mix of conversation and static noise
+    snr_noise_mix_dB = 10*np.log10(0.6 / 0.4)  # ~= 1.76 dB conversation to static ratio
+    rms_cafe = np.sqrt(np.mean(y_cafe_ambience**2))
+    rms_static = np.sqrt(np.mean(static**2))
+    noise = (y_cafe_ambience + static*(rms_cafe / (10**( snr_noise_mix_dB / 20 )) / rms_static))
 
     rms_signal = np.sqrt(np.mean(audio**2))
     rms_noise = np.sqrt(np.mean(noise**2))
 
     noise_weight = rms_signal / (10**(snr_dB / 20)) / (rms_noise + 1e-10)
-
-
 
     audio_with_noise = (audio + noise*noise_weight)
     return peak_normalize(audio_with_noise)
@@ -132,6 +152,192 @@ def augment_samples(sr, snr):
         ])
     return samples
 
+
+def old_simulate_microphone_from_source(y, sr):
+
+    # ensure 1D
+    y = np.asarray(y)
+    if y.ndim > 1:
+        y = np.mean(y, axis=0)
+
+    # bandwidth limitation via resampling
+    target_sr = min(8000, sr)
+    if target_sr < sr:
+        y = librosa.resample(y, orig_sr=sr, target_sr=target_sr)
+        y = librosa.resample(y, orig_sr=target_sr, target_sr=sr)
+
+    # 2) simple dynamic range compressor (frame RMS -> dB -> gain reduction)
+    frame_len = max(1, int(0.02 * sr))  # 20 ms window
+    window = np.ones(frame_len) / frame_len
+    power = np.convolve(y * y, window, mode="same")
+    rms = np.sqrt(power + 1e-12)
+    db = 20.0 * np.log10(rms + 1e-12)
+
+    thresh_db = -25.0   # threshold (dB)
+    ratio = 4.0         # compression ratio
+    over_db = np.maximum(db - thresh_db, 0.0)
+    reduction_db = over_db * (1.0 - 1.0 / ratio)
+
+    # smooth gain changes to simulate attack/release
+    #smooth_len = max(1, int(0.01 * sr))  # 10 ms smoothing
+    #smooth_k = np.ones(smooth_len) / smooth_len
+    #reduction_db = np.convolve(reduction_db, smooth_k, mode="same")
+
+    #gain = 10.0 ** (-reduction_db / 20.0)
+    #gain = 10.0 ** (-reduction_db / 10.0)
+    gain = 10.0 ** (-reduction_db / 10.0)
+    y_compressed = y * gain
+
+    # makeup gain to restore perceived loudness
+    makeup_db = 6.0
+    y_compressed *= 10.0 ** (makeup_db / 20.0)
+
+    # 3) soft clipping to simulate mic preamp saturation
+    #y_compressed = np.tanh(y_compressed)
+
+    # 4) reduce effective bit depth (quantization noise)
+    #quant_bits = 16
+    #max_val = 2 ** (quant_bits - 1) - 1
+    #y_compressed = np.round(y_compressed * max_val) / float(max_val)
+
+    # 5) add low-level microphone noise/hiss
+    #noise_level = 1e-3 * max(1.0, np.std(y_compressed))
+    #y_compressed = y_compressed + np.random.normal(0.0, noise_level, size=y_compressed.shape)
+
+    # clamp to [-1, 1]
+    #y_compressed = np.clip(y_compressed, -1.0, 1.0)
+
+    return y_compressed
+
+def simulate_microphone_from_source(y, sr, drc_threshold=-40, drc_ratio=4.0, drc_attack=10, drc_release=50):
+    """
+    does two things:
+
+    1) Band-pass filtering (keep between 120 Hz and 3500 Hz, 
+    with bandwidth extending up to 4000 Hz)
+
+    2) Dynamic Range Compression using pydub
+    """
+    ##################################
+    # Harmonic-Percussive
+    # Source Separation (HPSS)
+    # maintain percussion voices
+    # after filtering and dynamic
+    # range compression
+    ##################################
+    #D = librosa.stft(y)
+    #H, P = librosa.decompose.hpss(D)
+    #y_harmonic = librosa.istft(H)
+    ## should always pad with 256 zeros  (128 [...] 128)
+    #y_harmonic = np.pad(y_harmonic,
+                          #int(max(len(y) - len(y_harmonic), 0)/2))
+    #y_percussive = librosa.istft(P)
+    #y_percussive = np.pad(y_percussive,
+                          #int(max(len(y) - len(y_percussive), 0)/2))
+
+
+
+    ##################################
+    # bandwidth limitation 
+    # via resampling
+    ##################################
+    target_sr = 8000
+    y = librosa.resample(y, orig_sr=sr, target_sr=target_sr)
+    y = librosa.resample(y, orig_sr=target_sr, target_sr=sr)
+
+    ##################################
+    # convert to 16 bit integer
+    # (librosa to pydub)
+    ##################################
+
+    max_amplitude = np.iinfo(np.int16()).max
+    y_int16 = (y * max_amplitude).astype(np.int16)
+
+    y_audioseg = AudioSegment(
+        data = y_int16.tobytes(),
+        frame_rate = sr,
+        sample_width = y_int16.dtype.itemsize,
+        channels=1)
+    
+    ##################################
+    # low pass filter: 3500 Hz cutoff
+    # higher frequencies reduced by 
+    # 6 dB per octave above cutoff
+    ##################################
+    # https://github.com/jiaaro/pydub/blob/master/pydub/effects.py#L222
+    y_audioseg = low_pass_filter(y_audioseg, 3500)
+
+    ##################################
+    # high pass filter: 120 Hz cutoff
+    # lower frequencies reduced by 
+    # 6 dB per octave below cutoff
+    ##################################
+    y_audioseg = high_pass_filter(y_audioseg, 120)
+
+    ##################################
+    # dynamic range compression
+    ##################################
+    # https://github.com/jiaaro/pydub/blob/master/pydub/effects.py#L116
+    # https://en.wikipedia.org/wiki/Dynamic_range_compression
+    y_audioseg = compress_dynamic_range(
+        y_audioseg,
+        threshold=drc_threshold,
+        ratio = drc_ratio,
+        attack = drc_attack,
+        release=drc_release
+    )
+
+    ##################################
+    # convert back to 32 bit float
+    # (pydub to librosa)
+    ##################################
+    y_compressed = (np.array(y_audioseg.get_array_of_samples()) / max_amplitude).astype(np.float32)
+    #return np.clip(y_compressed + (y_percussive * 0.3), -1, 1)
+    return np.clip(y_compressed, -1, 1)
+
+
+def sample_from_source_audios(n_songs: int = None, tracks_dir = "./tracks", sr=11025, snr=None) -> list[dict]:
+    """
+    returns samples with song_id labels: `[{"song_id": .., "microphone": [..,..,..]}, ...]`
+    This function attempts to simulate the act of recording many microphone samples
+    by doing some dynamic range compression and filtering of the source audio files
+
+    spectrogram looks similar to actual microphone recordings, primary trait 
+    of microphone recordings compared to the source audio is having a lower 
+    amplitude in the waveform on average (lower dynamic range)
+
+    computes the same samples each time since random sampling uses `seed=1`, => reproducable samples
+
+    ## Arguments:
+    - `n_songs`: optionally take the top n songs from the top of the `tracks_dir` dataset.
+        Default is to use all songs
+    - `snr`: optionally specify a signal-to-noise ratio for adding noise. 
+        Default is to not add noise. 
+        Can be done afterwards to save computation on recreating samples: 
+        `sample_slices = [add_noise(audio, snr) for audio in sample_slices]`
+
+    assumes that song_ids correspond to order that tracks appear in csv
+
+    (first row => song_id = 1, ...)
+    """
+    samples = []
+    tracks_dir = Path(tracks_dir)
+    df = pd.read_csv(tracks_dir/"tracks.csv")
+    for idx, track in df.iterrows():
+        song_id = idx + 1
+        if n_songs is not None:
+            if song_id > n_songs:
+                break
+        sample_slices = create_samples(tracks_dir/track["audio_path"], sr, n_samples=5, n_seconds=5, seed=1)
+        sample_slices = [simulate_microphone_from_source(s, sr) for s in sample_slices]
+        if snr is not None:
+            sample_slices = [add_noise(audio, snr) for audio in sample_slices]
+        samples.extend([
+            {"song_id": song_id,
+             "microphone": s
+            } for s in sample_slices
+        ])
+    return samples
 
 
 #
@@ -214,180 +420,7 @@ def compute_performance_metrics(song_id, time_pair_bins, n_sample_hashes, sr=110
     metrics["prop_hash_matches"] = min(metrics["n_hash_matches"] / metrics["n_sample_hashes"], 1)
     return metrics
 
-
-def old_simulate_microphone_from_source(y, sr):
-
-    # ensure 1D
-    y = np.asarray(y)
-    if y.ndim > 1:
-        y = np.mean(y, axis=0)
-
-    # 1) bandwidth limitation (simulate cheap mic low-pass) via resampling
-    target_sr = min(8000, sr)
-    if target_sr < sr:
-        y = librosa.resample(y, orig_sr=sr, target_sr=target_sr)
-        y = librosa.resample(y, orig_sr=target_sr, target_sr=sr)
-
-    # 2) simple dynamic range compressor (frame RMS -> dB -> gain reduction)
-    frame_len = max(1, int(0.02 * sr))  # 20 ms window
-    window = np.ones(frame_len) / frame_len
-    power = np.convolve(y * y, window, mode="same")
-    rms = np.sqrt(power + 1e-12)
-    db = 20.0 * np.log10(rms + 1e-12)
-
-    thresh_db = -25.0   # threshold (dB)
-    ratio = 4.0         # compression ratio
-    over_db = np.maximum(db - thresh_db, 0.0)
-    reduction_db = over_db * (1.0 - 1.0 / ratio)
-
-    # smooth gain changes to simulate attack/release
-    #smooth_len = max(1, int(0.01 * sr))  # 10 ms smoothing
-    #smooth_k = np.ones(smooth_len) / smooth_len
-    #reduction_db = np.convolve(reduction_db, smooth_k, mode="same")
-
-    #gain = 10.0 ** (-reduction_db / 20.0)
-    #gain = 10.0 ** (-reduction_db / 10.0)
-    gain = 10.0 ** (-reduction_db / 10.0)
-    y_compressed = y * gain
-
-    # makeup gain to restore perceived loudness
-    makeup_db = 6.0
-    y_compressed *= 10.0 ** (makeup_db / 20.0)
-
-    # 3) soft clipping to simulate mic preamp saturation
-    #y_compressed = np.tanh(y_compressed)
-
-    # 4) reduce effective bit depth (quantization noise)
-    #quant_bits = 16
-    #max_val = 2 ** (quant_bits - 1) - 1
-    #y_compressed = np.round(y_compressed * max_val) / float(max_val)
-
-    # 5) add low-level microphone noise/hiss
-    #noise_level = 1e-3 * max(1.0, np.std(y_compressed))
-    #y_compressed = y_compressed + np.random.normal(0.0, noise_level, size=y_compressed.shape)
-
-    # clamp to [-1, 1]
-    #y_compressed = np.clip(y_compressed, -1.0, 1.0)
-
-    return y_compressed
-
-def simulate_microphone_from_source(y, sr, drc_threshold=-40, drc_ratio=4.0, drc_attack=10, drc_release=50):
-    """
-    does two things:
-
-    1) Harmonic-Percussive Source Separation (HPSS) using librosa
-
-    2) Dynamic Range Compression using pydub
-    """
-    ##################################
-    # HPSS
-    # maintain percussion voices
-    # after filtering and dynamic
-    # range compression
-    # 
-    # issue: this may take too long to
-    # be worth it, but also drc takes
-    # a similar amount of time
-    ##################################
-    #D = librosa.stft(y)
-    #H, P = librosa.decompose.hpss(D)
-    #y_harmonic = librosa.istft(H)
-    ## should always pad with 256 zeros  (128 [...] 128)
-    #y_harmonic = np.pad(y_harmonic,
-                          #int(max(len(y) - len(y_harmonic), 0)/2))
-    #y_percussive = librosa.istft(P)
-    #y_percussive = np.pad(y_percussive,
-                          #int(max(len(y) - len(y_percussive), 0)/2))
-
-
-    ##################################
-    # convert to 16 bit integer
-    # (librosa to pydub)
-    ##################################
-
-    max_amplitude = np.iinfo(np.int16()).max
-    y_int16 = (y * max_amplitude).astype(np.int16)
-
-    from pydub import AudioSegment
-    from pydub.effects import compress_dynamic_range, low_pass_filter
-    y_audioseg = AudioSegment(
-        data = y_int16.tobytes(),
-        frame_rate = sr,
-        sample_width = y_int16.dtype.itemsize,
-        channels=1)
-    
-    ##################################
-    # low pass filter: 6000 Hz cutoff
-    ##################################
-    # https://github.com/jiaaro/pydub/blob/master/pydub/effects.py#L222
-    y_audioseg = low_pass_filter(y_audioseg, 6000)
-
-    ##################################
-    # dynamic range compression
-    ##################################
-    # https://github.com/jiaaro/pydub/blob/master/pydub/effects.py#L116
-    # https://en.wikipedia.org/wiki/Dynamic_range_compression
-    y_audioseg = compress_dynamic_range(
-        y_audioseg,
-        threshold=drc_threshold,
-        ratio = drc_ratio,
-        attack = drc_attack,
-        release=drc_release
-    )
-
-    ##################################
-    # convert back to 32 bit float
-    # (pydub to librosa)
-    ##################################
-    y_compressed = (np.array(y_audioseg.get_array_of_samples()) / max_amplitude).astype(np.float32)
-    #return np.clip(y_compressed + (y_percussive * 0.3), -1, 1)
-    #return y_compressed + (y_percussive * 0.3)
-    return y_compressed
-
-
-def sample_from_source_audios(n_songs: int = None, tracks_dir = "./tracks", sr=11025, snr=None):
-    """
-    This function attempts to simulate the act of recording many microphone samples
-    by doing some dynamic range compression and filtering of the source audio files
-
-    spectrogram looks similar to actual microphone recordings, primary trait 
-    of microphone recordings compared to the source audio is having a lower 
-    amplitude in the waveform on average (lower dynamic range)
-
-    computes the same samples each time since random sampling uses `seed=1`, => reproducable samples
-
-    ## Arguments:
-    - `n_songs`: optionally take the top n songs from the top of the `tracks_dir` dataset.
-        Default is to use all songs
-    - `snr`: optionally specify a signal-to-noise ratio for adding noise. 
-        Default is to not add noise. 
-        Can be done afterwards to save computation on recreating samples: 
-        `sample_slices = [add_noise(audio, snr) for audio in sample_slices]`
-
-    assumes that song_ids correspond to order that tracks appear in csv
-
-    (first row => song_id = 1, ...)
-    """
-    samples = []
-    tracks_dir = Path(tracks_dir)
-    df = pd.read_csv(tracks_dir/"tracks.csv")
-    for idx, track in df.iterrows():
-        song_id = idx + 1
-        if n_songs is not None:
-            if song_id > n_songs:
-                break
-        sample_slices = create_samples(tracks_dir/track["audio_path"], sr, n_samples=5, n_seconds=5, seed=1)
-        sample_slices = [simulate_microphone_from_source(s, sr) for s in sample_slices]
-        if snr is not None:
-            sample_slices = [add_noise(audio, snr) for audio in sample_slices]
-        samples.extend([
-            {"song_id": song_id,
-             "microphone": s
-            } for s in sample_slices
-             #"microphone_with_noise": s[1]
-             #} for s in zip(sample_slices, sample_slices_with_noise)
-        ])
-    return samples
+###########################################
 
 def recompute_hashes():
     with connect() as con:
@@ -406,58 +439,143 @@ class GridViewer():
     - *Fingerprint size*: how much disk space is used?
     - *Search speed*: how long does it take to search for a match?
     """
-    def __init__(self, n_seconds_of_source_audio: float):
-        self.param_stats = defaultdict(list)  # {snr: [ (params_1, stats_1), (params_2, stats_2), ... ], ...}
-        self.errors = []  # dict keys: {"time_of_error", "all_params", "stacktrace"}
-        self.n_seconds_of_source_audio = n_seconds_of_source_audio
-        self.filename = "gridviewer.pkl"
-        # k = frozenset(d.items()) # idea: recursively use this to index based on paramset
-        # (immutable keys)
+    def __init__(self, parameter_grid):
+        self.database = sqlite3.connect(":memory:")
+        self.cursor = self.database.cursor()
+        self.cursor.execute(
+            "CREATE TABLE paramsets ( "
+            "paramset_idx INTEGER, "
+            "cm_window_size INTEGER, "
+            "candidates_per_band INTEGER, "
+            "bands BLOB, "
+            "fanout_t INTEGER, "
+            "fanout_f INTEGER);"
+        )
+        for paramset_idx, (cm_window_size, candidates_per_band, bands, fanout_t, fanout_f) in enumerate(parameter_grid):
+            self.cursor.execute(
+                "INSERT INTO paramsets "
+                "(paramset_idx, cm_window_size, candidates_per_band, bands, fanout_t, fanout_f) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (paramset_idx, cm_window_size, candidates_per_band, pickle.dumps(bands), fanout_t, fanout_f)
+            )
+        self.database.commit()
 
-    def summary_statistics(self, results, database_size):
+        self.cursor.execute(
+            "CREATE TABLE results ( "
+            "paramset_idx INTEGER, "
+            "snr FLOAT, "
+            "proportion_correct FLOAT, "
+            "avg_search_time_s FLOAT, "
+            "PRIMARY KEY (paramset_idx, snr) "
+            ")"
+        )
+
+        self.cursor.execute(
+            "CREATE TABLE fingerprint_densities ( "
+            "paramset_idx INTEGER, "
+            "song_title TEXT, "
+            "song_id INTEGER, "
+            "n_hashes INTEGER, "
+            "n_seconds FLOAT, "
+            "hashes_per_second FLOAT, "
+            "fingerprint_size_MB FLOAT, "
+            "source_audio_size_MB FLOAT, "
+            "compression_ratio FLOAT, "
+            "compression_ratio_inv FLOAT, "
+            "PRIMARY KEY (paramset_idx, song_id)"
+            ")"
+        )
+
+        self.cursor.execute(
+            "CREATE TABLE database_size ( "
+            "paramset_idx INTEGER PRIMARY KEY, "
+            "total_fingerprint_size_MB FLOAT, "
+            "hashes_MB FLOAT, "
+            "hash_index_MB FLOAT "
+            ")"
+        )
+
+        self.cursor.execute(
+            "CREATE TABLE errors ("
+            "paramset_idx INTEGER, "
+            "time_of_error TEXT, "
+            "stacktrace TEXT, "
+            "snr FLOAT, "
+            "PRIMARY KEY (paramset_idx, snr)"
+            ")"
+        )
+
+    def add_result(self, paramset_idx, results, snr):
+        """
+        `param_idx` is the index of `parameter_grid=list(product(...))` corresponding to parameters
+        used to achieve `results`.
+        """
+        summary = self.compute_results_summary(results)
+        self.cursor.execute(
+            "INSERT INTO results "
+            "(paramset_idx, snr, proportion_correct, avg_search_time_s) "
+            "VALUES (?, ?, ?, ?)",
+            (paramset_idx, snr, summary["proportion_correct"], summary["avg_search_time_s"])
+        )
+        self.database.commit()
+    
+    def add_fingerprint_size(self, paramset_idx, database_size: tuple[float,float], fingerprint_densities_df: pd.DataFrame):
+        self.cursor.execute(
+            "INSERT INTO database_size "
+            "(paramset_idx, total_fingerprint_size_MB, hashes_MB, hash_index_MB) "
+            "VALUES (?, ?, ?, ?)",
+            (paramset_idx, database_size[0] + database_size[1], database_size[0], database_size[1])
+        )
+        for i, row in fingerprint_densities_df.iterrows():
+            self.cursor.execute(
+                "INSERT INTO fingerprint_densities "
+                "(paramset_idx, song_title, song_id, n_hashes, n_seconds, hashes_per_second, "
+                "fingerprint_size_MB, source_audio_size_MB, compression_ratio, compression_ratio_inv) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (paramset_idx, row["song_title"], row["song_id"], row["n_hashes"], row["n_seconds"],
+                 row["hashes_per_second"], row["fingerprint_size_MB"], row["source_audio_size_MB"],
+                 row["compression_ratio"], row["compression_ratio_inv"])
+            )
+        self.database.commit()
+    
+    def compute_results_summary(self, results):
         """
         summarize the results table to be stored with 
-        its corresponding parameters
+        its corresponding parameters and snr
         """
         results_df = pd.DataFrame(results)
         return {
             "proportion_correct": results_df["correct"].mean(),
-            "avg_search_time": results_df["search_time_with_index"].mean(),
-            "total_fingerprint_size_MB": database_size[0] + database_size[1],
+            "avg_search_time_s": results_df["search_time_with_index"].mean(),
             "misc_info": {
                 "avg_search_time_without_index": results_df["search_time_without_index"].mean(),
-                "fingerprint_size_MB": (('hashes', database_size[0]), ('hash_index', database_size[1])),
             }
         }
 
-    def append(self, all_parameters, results, snr, database_size: tuple[float,float]):
-        self.param_stats[snr].append(
-            (
-                all_parameters, 
-                self.summary_statistics(results, database_size)
-            )
-        )
-    
-    def to_dataframe(self):
-        df_rows = []
-        for snr in self.param_stats.keys():
-            for entry in self.param_stats[snr]:
-                row = {}
-                row["signal_to_noise_ratio_dB"] = snr
-                row["proportion_correct"] = entry[1]["proportion_correct"]
-                row["avg_search_time"] = entry[1]["avg_search_time"]
-                row["total_fingerprint_size_MB"] = entry[1]["total_fingerprint_size_MB"]
-                row["cm_window_size"] = entry[0]["constellation_mapping"]["cm_window_size"]
-                row["candidates_per_band"] = entry[0]["constellation_mapping"]["candidates_per_band"]
-                row["bands"] = entry[0]["constellation_mapping"]["bands"]
-                row["fanout_t"] = entry[0]["hashing"]["fanout_t"]
-                row["fanout_f"] = entry[0]["hashing"]["fanout_f"]
-                row["avg_search_time_without_index"] = entry[1]["misc_info"]["avg_search_time_without_index"]
-                row["fingerprint_size_MB"] = entry[1]["misc_info"]["fingerprint_size_MB"]
-                df_rows.append(row)
+    def paramset_idx_to_params(self, paramset_idx: int):
+        res = self.cursor.execute("SELECT * FROM paramsets WHERE paramset_idx = ?", (paramset_idx,)).fetchone()
+        return {
+            "cm_window_size": res[1], 
+            "candidates_per_band": res[2], 
+            "bands": pickle.loads(res[3]), 
+            "fanout_t": res[4], 
+            "fanout_f": res[5]
+            }
 
-        return pd.DataFrame(df_rows)
+
     
+    def to_sqlite(self, filename="gridviewer.db"):
+        # .iterdump()
+        if os.path.exists(filename):
+            try:
+                os.remove(filename)
+            except OSError:
+                pass
+        with sqlite3.connect(filename) as export_db:
+            self.database.backup(export_db)
+
+
+
     def errors_to_dataframe(self):
         errors_df = pd.DataFrame(self.errors)
         errors_df["exception"] = errors_df["stacktrace"].apply(lambda line: line.splitlines()[-1:][0])
@@ -470,40 +588,18 @@ class GridViewer():
 
         return errors_df.drop("all_params", axis=1)
 
-    def log_exception(self, all_parameters, stacktrace, snr):
+    def log_exception(self, paramset_idx, stacktrace, snr):
         """
         obtain stacktrace string with `traceback.format_exc()` inside `except` clause.
         """
         time_of_error = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        self.errors.append({
-            "time_of_error": time_of_error,
-            "all_params": all_parameters,
-            "stacktrace": stacktrace,
-            "snr": snr
-            })
-
-    
-    @classmethod
-    def from_pickle(cls, filename="gridviewer.pkl"):
-        with open(filename, 'rb') as f:
-            return pickle.load(f)
-
-    def to_pickle(self, filename = None):
-        with open(
-            filename if filename is not None else self.filename, 
-            'wb') as f:
-            pickle.dump(self, f)
-
-    def to_json(self, json_filename="gridviewer.json"):
-        try:
-            with open(json_filename, "w", encoding="utf-8") as f:
-                json.dump({
-                    "param_stats": self.param_stats,
-                    "errors": self.errors,
-                    "n_seconds_of_source_audio": self.n_seconds_of_source_audio
-                }, f, indent=2)
-        except:
-            pass
+        self.cursor.execute(
+            "INSERT INTO errors "
+            "(paramset_idx, time_of_error, stacktrace, snr) "
+            "VALUES (?, ?, ?, ?)",
+            (paramset_idx, time_of_error, stacktrace, snr)
+        )
+        self.database.commit()
 
 
 
@@ -609,7 +705,7 @@ def perform_recognition_test(n_songs=None, samples=None, perform_no_index_search
 
     return sum(r["correct"] for r in results) / len(samples), results
 
-def compute_fingerprint_size():
+def compute_database_size():
     """
     returns `(all_hashes_size_MB, hash_index_size_MB)`
 
@@ -638,95 +734,194 @@ def compute_fingerprint_size():
 
         return size_hashes, size_hash_index
 
+
+#def compute_total_length_of_source_audio():
+    #"""
+    #number of seconds of source audio in database
+
+    #can be used to normalize fingerprint size to Megabytes per second of audio
+    #"""
+    #with connect() as con:
+        #cur = con.cursor()
+        #cur.execute(
+            #"SELECT SUM(duration_s) as total_duration_s "
+            #"FROM songs"
+        #)
+        #total_duration_s = cur.fetchone()[0]
     
+    #return total_duration_s
 
-def compute_total_length_of_source_audio():
-    """
-    number of seconds of source audio in database
-
-    can be used to normalize fingerprint size to Megabytes per second of audio
-    """
+def compute_n_hashes_per_songid():
     with connect() as con:
         cur = con.cursor()
         cur.execute(
-            "SELECT SUM(duration_s) as total_duration_s "
-            "FROM songs"
+            """
+            SELECT 
+                song_id, 
+                count(*) as n_hashes, 
+                songs.duration_s, 
+                count(*) / songs.duration_s as hashes_per_second
+            FROM hashes 
+            JOIN songs ON songs.id = hashes.song_id 
+            GROUP BY hashes.song_id
+            """
         )
-        total_duration_s = cur.fetchone()[0]
+        res = cur.fetchall()
     
-    return total_duration_s
+    return pd.DataFrame([{
+        "song_id": r[0], 
+        "n_hashes": r[1],
+        "n_seconds": r[2],
+        "hashes_per_second": r[3]}
+        for r in res])
+
+def compute_fingerprint_density():
+    """
+    given the current parameters set in `parameters.json`, return 
+    information about the size of the fingerprints in the database
+    """
+    fingerprint_density_info = compute_n_hashes_per_songid()
+    db_size_MB = compute_database_size()
+    total_db_size_MB = db_size_MB[0] + db_size_MB[1]
+    n_hashes = fingerprint_density_info["n_hashes"].sum()
+    fingerprint_density_info["fingerprint_size_MB"] = fingerprint_density_info[
+        "n_hashes"
+        ].apply(lambda n: (n*total_db_size_MB)/n_hashes)
+    fingerprint_density_info["source_audio_size_MB"] = fingerprint_density_info[
+        "song_id"
+        ].apply(lambda song_id: os.stat(retrieve_song(song_id)["audio_path"]).st_size / (1024.0*1024.0))
+    fingerprint_density_info["compression_ratio"] = fingerprint_density_info["fingerprint_size_MB"] / fingerprint_density_info["source_audio_size_MB"] 
+    fingerprint_density_info["compression_ratio_inv"] = fingerprint_density_info["compression_ratio"].apply(lambda r: r ** -1)
+    fingerprint_density_info["song_title"] = fingerprint_density_info[
+        "song_id"].apply(lambda song_id: retrieve_song(song_id)["title"])
+
+    title = fingerprint_density_info.pop("song_title")
+    fingerprint_density_info.insert(0, "song_title", title)
+    return fingerprint_density_info
 
 
-def run_grid_search(n_songs=None):
-    max_proportion_correct = 0
-    best_params = 0
-    best_results = {}
-    proportion_correct = 0
+
+def run_grid_search(parameter_space_subset: dict[str,list] = None, signal_to_noise_ratios: list[int|float] = None, n_songs=None):
+    """
+    ## Arguments
+
+    - `parameters_space_subset`: a dictionary with keys being parameter names 
+    from `parameters.json`, and values being a list of values for the 
+    parameter to search over in the grid search. 
+        - Default is some sensible defaults, testing `candidates_per_band =6 and =2`.
+    - `signal_to_noise_ratios`: a list of numbers specifying the different amounts 
+    of noise to apply to the test samples to measure noise robustness. 
+    Measured in decibels. SNR=0 represents 50/50 mix of audio and noise, 
+    negative numbers indicate more noise and positive numbers indicate more signal 
+    (music audio). 
+        - Default is `[3,6]`.
+    - `n_songs`: optional parameter to use the top `n_songs` from the tracks library
+    instead of generating samples from and testing over all tracks. Using a subset of the top
+    few tracks helps with getting a general idea of how the parameters affect 
+    fingerprint system parameters without having to wait a long time.
+        - Default is to use all tracks in library.
+
+    ## Example:
+    ```
+    parameter_space_subset = {
+            "cm_window_size": [10, 20],
+            "candidates_per_band": [5, 6, 7, 8]
+    }
+    run_grid_search(parameter_space_subset)
+
+    # runs the following evaluations:
+    # (cm_window_size, candidates_per_band):
+    # [(10, 5), (10, 6), (10, 7), (10, 8), (20, 5), (20, 6), (20, 7), (20, 8)]
+    # unspecified parameters are set to sensible defaults.
+    ```
+
+    """
     results = {}
 
-    # {0.1: (best_results, best_params), 0.2: (best_results, best_params), ...}
-    best_model_per_snr = {}
+    paramspace = {
+        "cm_window_size": [10],
+        "candidates_per_band": [6, 2],
+        "bands": [[(0,10),(10,20),(20,40),(40,80),(80,160),(160,512)]],
+        "fanout_t": [100],
+        "fanout_f": [1500]
+    }
 
-    grid_cmws = [4,5,10]
-    grid_cpb = [5,7, 100]
-    #grid_cmws = [10]
-    #grid_cpb = [5]
-    grid_bands = [[(0,20), (20, 40), (40,80), (80,160), (160, 320), (320,512)]]
+    if parameter_space_subset is not None:
+        for k, v in parameter_space_subset.items():
+            paramspace[k] = v
 
-    #grid_noise_weights = np.arange(0.1, 1, 0.1)
-    grid_signal_to_noise_ratios = [-3, 0, 3, 6]
-    #grid_signal_to_noise_ratios = [3, 6]
+    if signal_to_noise_ratios is None:
+        signal_to_noise_ratio_grid = [3, 6]
+    else: 
+        signal_to_noise_ratio_grid = signal_to_noise_ratios
 
-    param_grid = list(product(grid_cmws, grid_cpb, grid_bands))
+    grid_cm_window_size = paramspace["cm_window_size"]
+    grid_candidates_per_band = paramspace["candidates_per_band"]
+    grid_bands = paramspace["bands"]
+    grid_fanout_t = paramspace["fanout_t"]
+    grid_fanout_f = paramspace["fanout_f"]
 
-    grid_viewer = GridViewer(
-        n_seconds_of_source_audio = compute_total_length_of_source_audio()
+    parameter_grid = list(
+        product(
+            grid_cm_window_size,
+            grid_candidates_per_band,
+            grid_bands,
+            grid_fanout_t,
+            grid_fanout_f
+            )
         )
 
-    ##################################
-    # grid search:
-    # try all combinations
-    # compute metrics for each
-    # run on Great Lakes HPC overnight
-    ##################################
+    grid_viewer = GridViewer(parameter_grid)
 
     set_parameters()
-    #create_tables()
-    #add_songs("./tracks", n_songs)
-    init_db(n_songs=n_songs)
+    create_tables()
+    add_songs("./tracks", n_songs)
 
     samples = sample_from_source_audios(n_songs=n_songs)
 
-    for i, snr in enumerate(grid_signal_to_noise_ratios):
-        print(f"snr={snr}: {i+1} / {len(grid_signal_to_noise_ratios)}")
+    for paramset_idx, (cm_window_size, candidates_per_band, bands, fanout_t, fanout_f) in enumerate(parameter_grid):
 
-        samples_with_noise = [add_noise(audio, snr) for audio in samples]
+        set_parameters(
+            cm_window_size=cm_window_size,
+            candidates_per_band=candidates_per_band,
+            bands=bands,
+            fanout_t=fanout_t,
+            fanout_f=fanout_f
+        )
 
-        for j, (cm_window_size, candidates_per_band, bands) in enumerate(param_grid):
-            print(f"\tparamset {j+1} / {len(param_grid)}")
-            parameters = {
-                "cm_window_size": cm_window_size,
-                "candidates_per_band": candidates_per_band,
-                "bands": bands
-                # ...
-            }
+        all_parameters = read_parameters("all_parameters")
 
-            # unspecified parameters are set to their defaults
-            #
-            # **dict notation:
-            # converts {"key1": value1, "key2": value2}
-            #          -> key1=value1, key2=value2
-            set_parameters(**parameters)
-            all_parameters = read_parameters("all_parameters")
+        print(f"paramset_idx {paramset_idx}: {paramset_idx+1} / {len(parameter_grid)}")
+        print(all_parameters)
+
+        try:
+            recompute_hashes()
+        except:
+            print("\t exception occured")
+            stacktrace=traceback.format_exc()
+            grid_viewer.log_exception(
+                paramset_idx=paramset_idx, 
+                stacktrace=stacktrace,
+                snr=snr
+                )
+            continue
+
+        # record size of database and size of individual fingerprints
+        # for each set of parameters 
+        database_size = compute_database_size()
+        fingerprint_densities_df = compute_fingerprint_density()
+        grid_viewer.add_fingerprint_size(paramset_idx, database_size, fingerprint_densities_df)
+
+        for j, snr in enumerate(signal_to_noise_ratio_grid):
+            print(f"\tsnr={snr}: {j+1} / {len(signal_to_noise_ratio_grid)}")
+            samples_with_noise = [{"song_id": audio["song_id"], "microphone": add_noise(audio["microphone"], snr)} for audio in samples]
             try:
-                recompute_hashes()
-                database_size = compute_fingerprint_size()
                 proportion_correct, results = perform_recognition_test(n_songs, samples_with_noise)
-                if proportion_correct > max_proportion_correct:
-                    max_proportion_correct = proportion_correct
-                    best_params = all_parameters
-                    best_results = results
-                grid_viewer.append(all_parameters, results, snr, database_size)
+                grid_viewer.add_result(paramset_idx, results, snr)
+                #if proportion_correct > max_proportion_correct:
+                    #max_proportion_correct = proportion_correct
+                    #best_params = all_parameters
+                    #best_results = results
             except:
                 # there can be invalid combinations of parameters
                 #
@@ -738,55 +933,36 @@ def run_grid_search(n_songs=None):
                 print("\t exception occured")
                 stacktrace=traceback.format_exc()
                 grid_viewer.log_exception(
-                    all_parameters=all_parameters, 
+                    paramset_idx=paramset_idx, 
                     stacktrace=stacktrace,
                     snr=snr
                     )
 
 
-        best_model_per_snr[snr] = (best_results, best_params)
-
-    return best_model_per_snr, grid_viewer
+    grid_viewer.to_sqlite(filename="sql/gridviewer.db")
+    return grid_viewer
     
 
 def main():
     #max_results, max_params = run_grid_search(n_songs=4)
-    best_model_per_noise_weight, grid_viewer = run_grid_search(n_songs=4)
-    max_results, max_params = best_model_per_noise_weight[6]
-    print("=============")
-    print("max parameters:")
-    print("=============")
-
-    print(max_params)
-
-    print("=============")
-    print("results:")
-    print("=============")
-
-    #print(max_results)
-    max_results_df = pd.DataFrame(max_results)
-    max_results_df.to_pickle("max_results.pkl")
-    grid_viewer.to_json()
-    grid_viewer.to_pickle()
-    print("saved best results to:         max_results.pkl")
-    print("saved best parameters to:      parameters.json")
-    print(f"saved grid viewer to:          {grid_viewer.filename}")
-    print("                               and gridviewer.json")
+    grid_viewer = run_grid_search(n_songs=4)
 
     #plastic_beach = retrieve_song(1)["audio_path"]
     #visualize_map_interactive(plastic_beach)
 
 if __name__ == "__main__":
     main()
+
+    
+def thing():
     #pb_source = "tracks/audio/Gorillaz_PlasticBeachfeatMickJonesandPaulSimonon_pWIx2mz0cDg.flac"
+    pass
     #from cm_helper import preprocess_audio
     #y, sr = preprocess_audio(pb_source)
     #y = np.clip(y, -1, 1)
     #y_compressed = simulate_microphone_from_source(y,sr)
     #import soundfile as sf
     #sf.write("pb_compressed.wav", y_compressed, sr)
-
-    
 
 
 
